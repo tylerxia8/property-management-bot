@@ -22,6 +22,7 @@ export default function PropertiesPage() {
   const [error, setError] = useState("");
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const loadVersion = useRef(0);
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function PropertiesPage() {
 
   async function load() {
     const version = ++loadVersion.current;
+    setLoaded(false);
     const meResponse = await api("/v1/me");
     if (version !== loadVersion.current) return;
     if (meResponse.status === 401) {
@@ -51,14 +53,16 @@ export default function PropertiesPage() {
     if (!listResponse.ok) {
       setError(listBody.error?.message ?? "Properties are unavailable.");
       setItems([]);
+      setLoaded(true);
       return;
     }
     setItems(listBody.items);
+    setLoaded(true);
   }
 
   async function onCreate(event: FormEvent) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || !loaded) return;
     setSaving(true);
     loadVersion.current += 1;
     setError("");
@@ -83,7 +87,7 @@ export default function PropertiesPage() {
     }
   }
 
-  const canCreate = me?.capabilities.includes("properties.create") ?? false;
+  const canCreate = loaded && (me?.capabilities.includes("properties.create") ?? false);
 
   return (
     <>
