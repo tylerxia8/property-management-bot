@@ -50,3 +50,51 @@ jobs:
 
       - name: Run pytest, web build, typecheck, and Playwright
         run: bash scripts/run_m0_evidence.sh
+
+  demo-bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the fixture demo and check loopback health
+        run: |
+          python3 - << 'PY'
+          import base64
+          import pathlib
+          import secrets
+          alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+          def token(length):
+              return "".join(secrets.choice(alphabet) for _ in range(length))
+          path = pathlib.Path(".env.demo-ci")
+          path.write_text(
+              "\n".join([
+                  f"POSTGRES_PASSWORD={token(32)}",
+                  f"GROK_APP_PASSWORD={token(32)}",
+                  f"GROK_MIGRATOR_PASSWORD={token(32)}",
+                  f"SESSION_SECRET={token(48)}",
+                  f"CONTACT_ENCRYPTION_KEY={base64.b64encode(secrets.token_bytes(32)).decode()}",
+              ]) + "\n",
+              encoding="ascii",
+          )
+          PY
+          docker compose --env-file .env.demo-ci -f compose.demo.yaml -p grok-property-sample-ci config >/tmp/demo-config.yml
+          python3 - << 'PY'
+          text = open("/tmp/demo-config.yml", encoding="utf-8").read()
+          if "127.0.0.1:3000:3000" not in text:
+              raise SystemExit("web port is not bound to loopback")
+          if "5432:5432" in text:
+              raise SystemExit("postgres must not be published")
+          PY
+          docker compose --env-file .env.demo-ci -f compose.demo.yaml -p grok-property-sample-ci up --build -d
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3000/v1/health; then
+              echo
+              break
+            fi
+            sleep 5
+          done
+          curl -sf http://127.0.0.1:3000/v1/health >/dev/null
+          curl -sf http://127.0.0.1:3000/ | grep -q "Fixture sample."
+          docker compose --env-file .env.demo-ci -f compose.demo.yaml -p grok-property-sample-ci down -v --remove-orphans
+          rm -f .env.demo-ci /tmp/demo-config.yml
