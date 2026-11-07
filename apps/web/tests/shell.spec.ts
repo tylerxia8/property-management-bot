@@ -42,7 +42,7 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
   await page.getByRole("link", { name: "Canal House" }).click();
   await page.getByLabel("Unit label").fill("Main");
   await page.getByRole("button", { name: "Add unit" }).click();
-  await expect(page.getByText("Main")).toBeVisible();
+  await expect(page.getByText("Main", { exact: true })).toBeVisible();
   await page.goto("/properties");
   await page.getByRole("button", { name: "Sign out" }).click();
 
@@ -55,7 +55,7 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
   const saveResponse = await saved;
   expect(saveResponse.ok(), await saveResponse.text()).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Canal House North" })).toBeVisible();
-  await expect(page.getByText("Main")).toBeVisible();
+  await expect(page.getByText("Main", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add unit" })).toHaveCount(0);
   await page.screenshot({ path: "test-results/manager-property.png", fullPage: true });
 });

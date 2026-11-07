@@ -5,13 +5,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, clearToken, getToken } from "../../lib/api";
 
-type Review = { id: string; reason: string; prospect_state: string; final_housing_decision: boolean };
+type Review = {
+  id: string;
+  reason: string;
+  prospect_state: string;
+  final_housing_decision: boolean;
+};
 
 export default function ReviewsPage() {
   const router = useRouter();
   const [items, setItems] = useState<Review[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -29,6 +35,7 @@ export default function ReviewsPage() {
       return;
     }
     setItems(body.items);
+    setLoaded(true);
   }
 
   async function allow(id: string) {
@@ -45,7 +52,11 @@ export default function ReviewsPage() {
       setError(body.error?.message ?? "The review was not resolved.");
       return;
     }
-    setMessage(body.final_housing_decision ? "A final housing decision was recorded." : "Exception recorded. No final housing decision was recorded.");
+    setMessage(
+      body.final_housing_decision
+        ? "A final housing decision was recorded."
+        : "Exception recorded. No final housing decision was recorded.",
+    );
     await load();
   }
 
@@ -73,7 +84,16 @@ export default function ReviewsPage() {
         </p>
       ) : null}
       {message ? <p>{message}</p> : null}
-      <ul>
+      {loaded && items.length === 0 && !error ? (
+        <div className="card">
+          <h2>A little breathing room.</h2>
+          <p>
+            There are no pending reviews. New prospect exceptions will appear
+            here.
+          </p>
+        </div>
+      ) : null}
+      <ul className="review-list">
         {items.map((item) => (
           <li key={item.id}>
             {item.prospect_state}: {item.reason}{" "}
