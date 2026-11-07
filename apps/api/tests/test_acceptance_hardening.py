@@ -251,10 +251,16 @@ def test_openapi_types_match_the_running_app(app):
     from scripts.generate_api_types import TARGET, render
 
     schema = app.openapi()
+    generated = render(schema)
     assert schema["info"]["version"] == "0.1.0"
     assert "/v1/webhooks/{provider}" in schema["paths"]
     assert "/v1/operations/queue" in schema["paths"]
-    assert TARGET.read_text(encoding="utf-8") == render(schema)
+    assert "export interface ApproveBody {" in generated
+    assert "snapshot_hash: string;" in generated
+    assert "approval_ttl_hours" not in generated
+    assert "export interface HTTPValidationError {" in generated
+    assert "Success responses without a schema, typed as unknown:" in generated
+    assert TARGET.read_text(encoding="utf-8") == generated
 
 
 def test_media_symlink_is_not_opened(tmp_path):

@@ -21,3 +21,5 @@ The warning is Starlette’s deprecation notice that `httpx` with `starlette.tes
 This run does not enable the payment simulator, fixture settlement, or the fixture media scanner. The API process sets `STEP_UP_MAX_AGE_SECONDS=900` and `APPROVAL_TTL_HOURS=24` for the browser only. Those are dev/test fixtures. Pytest does not inherit them. The seeded 25,000-cent row and statement reason are labeled fixture.
 
 This evidence is local. It is not PRD §16 staging acceptance. See `docs/ACCEPTANCE.md`.
+
+After that evidence run, the type generator was changed from a path-string list to schema interfaces. The full evidence script was not run again. The follow-up checks were `pytest tests/test_acceptance_hardening.py::test_openapi_types_match_the_running_app` (1 passed, 0.90s) and `npx tsc --noEmit` in `apps/web` (exit 0). The generated file reports 67 component schemas, 6 typed success responses, and 97 success responses left `unknown`.

@@ -1,53 +1,79 @@
-# Dependency gates and unimplemented decisions
+# Dependency gates and current gaps
 
-Date: 2026-11-07
+Date: 2026-11-07, after local acceptance hardening on this branch.
 
-A gate means the affected capability stays off until the named decision or credential exists. A pending deviation means the specification does not define the behavior, so this repository does not invent it.
+A gate means a capability stays off until a named business decision or external account exists. A stack deviation means this repository chose different local software from a PRD proposal. A deviation does not need a vendor credential. A pending template means the specification does not define the behavior, so this repository does not invent it.
 
-## Production gates already in PRD §18
+## Current status
 
-These are not PRD contradictions. M0 does not enable the capability.
+This section is the status of the branch. The historical M0 table below is not.
+
+| Item | Current status |
+| --- | --- |
+| PostgreSQL outbox worker | Implemented. `dispatch_outbox` claims rows with `app_outbox_progress`, retries, and marks `FAILED` after five attempts. Delivery stays off. Tested by `test_worker_retries_then_dead_letters_without_delivery` and `test_fin_04_worker_replays_one_payable`. `grok_app` still has no general `UPDATE` on `outbox_events`. |
+| Backup restore | A local `pg_dump` / `pg_restore` into `grok_m0_restore` ran. The log is `docs/evidence/backup-restore.txt`: 1 property, 1 journal entry, 1 owner statement. Encrypted point-in-time recovery was not built. The PRD calls the 15-minute / 4-hour targets proposed. |
+| Celery and Redis | Not installed. They are the dispatcher named in PRD §7.1 and §7.2. The implemented dispatcher is PostgreSQL. No Redis or Celery credential is missing; the packages were not adopted. Redis is not a source of truth. |
+| OpenAPI TypeScript | `apps/api/scripts/generate_api_types.py` writes an interface for every component schema and a path map. Most success responses are `unknown` because the route does not declare a response schema. See `docs/ACCEPTANCE.md`. |
+| Local login and step-up | Dev/test only. Production does not mount them. Production MFA is not configured. |
+
+## Historical M0 record
+
+This is what was true at the foundation milestone only. Later commits on this branch superseded the worker and backup rows.
+
+| Item at M0 | Status then |
+| --- | --- |
+| Outbox worker | Not started. Rows were durable and undispatched. |
+| Backup restore drill | Not run. |
+| Ledger, maintenance, prospects, distributions | Not in that milestone. |
+
+## Provider and business gates
+
+These come from PRD §18 and §11. They stay off until the named decision or account exists. They are not the same thing as a missing local package.
 
 | Gate | What stays off |
 | --- | --- |
 | Portfolio, leases, reconciled opening balances | No production import |
 | Entity, license, and trust-accounting review | No real-money handling |
 | Bank accounts, pooling model, payment provider, availability rules | No live deposit or payout adapter |
-| Signed fee terms | No fee accrual |
-| Ownership shares and responsibility language | No beneficial allocation |
+| Signed fee terms | No production fee rate. The 8% figure exists only in the FIN-02 test |
+| Ownership shares and responsibility language beyond weights | No other expense split |
 | Reserves, spending authority, shortfall priority | No reserve or creditor-priority engine |
-| Named approvers, recipient verification, dual control | Dev/test approval stores a manager, a snapshot hash, and an explicit lifetime after a local password step-up. Production MFA is not configured. The fixture settlement flag does not clear cash. Provider submit stays `PROVIDER_SUBMISSION_DISABLED` unless the dev/test simulator is enabled, and that simulator is not a bank. |
-| Close calendar and retention matrix | Period close can be recorded. There is no deletion job. Owner statements are ledger snapshots, not an official package. |
-| Reviewed screening and accommodation policy | No production ratio is seeded. A missing policy returns human review and `CONFIGURATION_REQUIRED`. Fixture policies are labeled `fixture:`. Assistance-animal notes are private. No consumer report is ordered. |
+| Named approvers, recipient verification, dual control | Production MFA and dual control are not configured. Dev/test approval uses a server lifetime and a local password step-up. The fixture settlement flag does not clear cash |
+| Close calendar and retention matrix | Period close can be recorded. There is no deletion job. Statements are ledger snapshots, not an official package |
+| Reviewed screening and accommodation policy | No production ratio is seeded. A missing policy returns human review. Fixture policies are labeled `fixture:` |
 | Post-tour application vendor and adverse action | No consumer-report integration |
 | Marketplace access and communication consent | No external intake or outbound send |
-| Staffed emergency coverage | Escalation rows can be stored. Without a configured destination the job is `DESTINATION_UNCONFIGURED` and `delivered_at` stays null. Nothing is sent. |
-| Approved contractors and access rules | A manager can assign an approved local profile. There is no external contractor network, and availability does not grant entry. |
-| Languages and accommodation operations | English-preference capture only, later |
-| Media retention and sensitive-access map | No production media store |
+| Staffed emergency coverage | Escalation rows can be stored. Nothing is sent. A missing destination is `DESTINATION_UNCONFIGURED` |
+| Approved contractors and access rules | A manager can assign an approved local profile. There is no external contractor network |
+| Languages and accommodation operations | No production language pack |
+| Media retention and sensitive-access map | No production object store or KMS |
 
-## Pending deviations left unimplemented
+## Confirmed behavior still missing without a vendor account
 
-| Topic | Why it is pending | M0 behavior |
-| --- | --- | --- |
-| Direct-bank receipt journal legs | §4.2 requires a template and does not specify the debit and credit accounts or status mapping | `DIRECT_BANK` returns `DIRECT_BANK_TEMPLATE_UNCONFIGURED` |
-| Expense splits other than ownership weights | §4.4 mentions agreement responsibility rules and does not define a DSL | No allocator |
-| Bank CSV column layout | §9.2 requires an import and does not define columns | CSV returns `BANK_IMPORT_FORMAT_UNCONFIGURED`. Canonical JSON import is implemented |
-| Outbound-clearing account | §4.3 mentions it and assigns no code | No live payment submission. Simulator settlement uses the existing bank and payable accounts and is labeled simulator. |
-| Idempotency retention period | Not specified | Rows are kept; nothing expires them |
-| Step-up freshness window | §3 says “recent” without a duration | No default age. `step_up_max_age_seconds` of 0 refuses approval. `APPROVAL_TTL_HOURS` of 0 refuses approval. The client cannot send a lifetime. The local step-up route exists only with dev/test login. |
-| Statutory North Carolina timing, notice, or deposit administration | §12 says the legal summary is not a legal opinion | No statutory encoder |
-| Unit-command policy if it should differ from properties | Not specified. ADR 0004 records a reversible analogy so the API exists | Analogy only; not described as a confirmed policy |
-| Production malware scanning and KMS | Providers unselected | Local JPEG/PNG/MP4 checks run only when `APP_ENV` is development or test and `MEDIA_SCANNER=fixture`. The scanner name is `fixture-byte-scanner`. Production cannot mark an upload ready with it. HEIC stays unready. |
-| Cookie session and CSRF | Needs the OIDC/session decision | Bearer dev token only, and only in dev/test |
+These do not wait on a bank, an identity vendor, or an API key.
 
-## M0 items explicitly incomplete
-
-| Item | Evidence status |
+| Gap | Current behavior |
 | --- | --- |
-| OIDC login and MFA/step-up | Not implemented. Local auth is refused outside dev/test. |
-| Celery/Redis dispatcher | Outbox rows are durable and tested. No worker is started, and `grok_app` cannot mark an outbox row dispatched. |
-| Backup restore drill | Not run. |
-| Owner, tenant, and resource-scoped visibility | Owners read linked statements only. A missing actor reads no organization rows. Production OIDC is still absent. |
-| Contact and organization HTTP APIs | Tables and encryption exist. §9.2 does not name the routes, so they were not added. |
-| Financial commands and housing decisions | Phase 2 posts simulated journals. Phase 3 approves a maintenance invoice through that same payable command. No live payment, and no automated housing decision. |
+| Celery and Redis | Not installed. PostgreSQL is the worker. Delivery is disabled. ADR 0011 |
+| Success response schemas | 97 success responses in the OpenAPI document have no schema, so the generated TypeScript types them as `unknown` |
+| Routes named in §9.2 and not mounted | `GET /properties/{id}/ledger`, `POST /journals/{id}/reversals`, `GET /bank-transactions`, `POST /bank-matches`, `GET /invoices/{id}`, `POST /invoices/{id}/credit-notes`, `POST /payment-items/{id}/submission-evidence`, `POST /payment-items/{id}/settlement-evidence` |
+| Resource-scoped grants | Rows can store `resource_type`. Login and the worker ignore every grant whose `resource_type` is not null |
+| §13 alert routing, runbooks, and independent kill switches | `GET /v1/operations/queue` returns counts. `alerts_sent` is false. Messaging, calendar, and payment are not separate organization switches. Payment submission is disabled for the whole process |
+| §15.4 load test at the stated volume | Not run |
+| §15.4 manual screen-reader pass | Not run. The axe scan is not that pass |
+| Cookie session and CSRF | Not implemented. The session is a bearer token. ADR 0011 |
+| §16 staging acceptance | Not run. There is no staging environment and no named reviewer sign-off |
+
+## Unspecified templates left unimplemented
+
+| Topic | Why it is pending | Current behavior |
+| --- | --- | --- |
+| Direct-bank receipt journal legs | §4.2 requires a template and does not specify the accounts | `DIRECT_BANK` returns `DIRECT_BANK_TEMPLATE_UNCONFIGURED` |
+| Expense splits other than ownership weights | §4.4 does not define the other rules | No allocator |
+| Bank CSV column layout | §9.2 requires an import and does not define columns | CSV returns `BANK_IMPORT_FORMAT_UNCONFIGURED`. Canonical JSON import is implemented |
+| Outbound-clearing account | §4.3 assigns no code | No live payment submission. Simulator settlement uses the existing bank and payable accounts and is labeled simulator |
+| Idempotency retention period | Not specified | Rows are kept |
+| Step-up freshness and approval lifetime | §3 says “recent” and §4.7 proposes 24 hours | No default duration. Both settings at 0 refuse approval. The client cannot send a lifetime |
+| Statutory North Carolina timing | §12 says the legal summary is not a legal opinion | No statutory encoder |
+| Unit-command policy | Not specified. ADR 0004 records an analogy | Not described as a confirmed policy |
+| Production malware scanning | No product is selected | Fixture scanner only in dev/test. HEIC stays unready |

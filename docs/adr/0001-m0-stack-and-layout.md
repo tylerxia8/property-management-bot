@@ -44,7 +44,7 @@ Schema changes ship as Alembic revisions that run real PostgreSQL SQL. M0 is rev
 
 The web package does not depend on a database driver. The browser and the Next server call the HTTP API.
 
-Redis and Celery are not installed or started in M0. The outbox rows are the durable record. A worker process is an explicit later item, not a claim that jobs are dispatched.
+At M0, Redis and Celery were not installed. That sentence is historical. The current branch dispatches from PostgreSQL with `dispatch_outbox` and does not deliver. Celery and Redis remain uninstalled local packages, not missing credentials. ADR 0011 records that choice.
 
 ## Consequences
 

@@ -18,15 +18,17 @@ Date: 2026-11-07. This is the local implementation record. It is not PRD §16 st
 | §15.4 three journeys, plus return/timeout and emergency | Implemented locally | `test_journey_receipt_to_export_timeout_and_return`, `test_journey_inquiry_to_invitation`, `test_journey_repair_and_emergency` |
 | Property-based cent conservation and stateful double allocation | Implemented | `tests/test_money_invariants.py`, `test_stateful_receipts_cannot_be_allocated_twice` |
 | Signed webhook invalid signature, stale timestamp, and replay | Implemented for the local contract | `test_fin_04_worker_replays_one_payable`. Production ingress stays `WEBHOOK_NOT_CONFIGURED` |
-| Transactional outbox worker, delivery disabled, retry then dead letter | Implemented | `test_worker_retries_then_dead_letters_without_delivery`. Redis is not installed |
-| OpenAPI 0.1.0 and generated TypeScript path list | Implemented | `apps/web/lib/api-types.generated.ts`, `test_openapi_types_match_the_running_app` |
+| Transactional outbox worker, delivery disabled, retry then dead letter | Implemented | `test_worker_retries_then_dead_letters_without_delivery`. The dispatcher is PostgreSQL. Celery and Redis are not installed; that is a stack deviation, not a missing credential |
+| OpenAPI 0.1.0 schema-to-TypeScript | Partial | `generate_api_types.py` emits an interface for all 67 component schemas and a path map. 6 success responses have a schema. 97 do not, and those are `unknown`. The file is not only a list of path strings. `openapi-typescript` 7.13.0 was not added: it requires TypeScript 5, and this app pins TypeScript 7.0.2 |
 | Media symlink escape | Implemented | `safe_media_file`, `test_media_symlink_is_not_opened`. Scanner still fails closed unless the dev/test fixture flag is set |
 | Migration roundtrip and destructive downgrade refusal | Implemented | `test_migration_up_down_up`, `test_downgrade_without_flag_is_refused` |
 | Local backup restore | Executed as a drill | `scripts/backup_restore_drill.sh`, `docs/evidence/backup-restore.txt`. Not an encrypted quarterly PITR |
 | Core axe scan | Executed in Playwright | `apps/web/tests/accessibility.spec.ts`. Not a WCAG certification or screen-reader audit |
 | Operations queue | Partial | `GET /v1/operations/queue` returns dead letters, unknown payments, approved batches, and unassigned emergencies. `alerts_sent` is false. Nothing is paged |
-| OIDC, MFA, KMS, live bank, Celery, Redis, object storage, legal retention | Gated | `docs/DEPENDENCY_GATES.md` and PRD §18. Not labeled as a later phase in order to hide them |
+| Provider and business gates (OIDC, MFA, KMS, live bank, object storage, legal retention, fee and screening rules) | Gated | Listed one by one in `docs/DEPENDENCY_GATES.md` under “Provider and business gates” |
+| Celery and Redis | Not adopted | Local packages, not credentials. The PostgreSQL worker is the current dispatcher and does not deliver |
+| Confirmed routes and controls still absent | Not implemented | The list is in `docs/DEPENDENCY_GATES.md` under “Confirmed behavior still missing without a vendor account.” It includes the eight §9.2 routes that are not mounted, resource-scoped login, alert routing, kill switches, the load test, and the screen-reader pass |
 | Load test at 10× planned volume | Not run | No staging environment in this milestone |
 | Manual screen-reader pass | Not run | Not claimed |
 
-The latest command log is `docs/evidence/README.md`. A passing local suite does not accept the MVP.
+The latest full evidence log is `docs/evidence/README.md`. The type generator was checked again after that log; that later check is named in the same file. A passing local suite does not accept the MVP.

@@ -25,11 +25,13 @@ The task’s coverage list (accounting, prequalification, maintenance) names are
 | 6 | Phase 6 pilot and optional live payments | Provider sandbox or live adapter | Not started. Blocked by the §18 gates and by the instruction to keep money simulated until the provider and accounting rules are confirmed. |
 | 7 | Local acceptance hardening | Security fixes, local worker, journeys, backup drill, accessibility scan | Implemented locally. This is not §16 staging acceptance. See `docs/ACCEPTANCE.md`. |
 
-M0 does not pull phase 2–6 work forward.
+The rows above are the current branch. The section below is the original M0 boundary. It is not a claim that those later areas are still absent.
 
-## M0 scope
+## Original M0 boundary
 
-In scope:
+This is what the foundation milestone contained. Accounting, maintenance, prospects, distributions, the PostgreSQL worker, and the local backup drill were added in later commits on this same branch.
+
+In scope for the foundation milestone:
 
 - FastAPI service, Alembic revision, Next.js shell, lockfiles, setup and traceability docs
 - Organizations, users, role grants, parties, encrypted contacts, properties, units
@@ -38,4 +40,4 @@ In scope:
 - `GET /v1/me` and the property/unit commands in ADR 0004
 - Dev/test local login that fails closed outside those environments
 
-Out of scope: ledger, fees, distributions, prospects, maintenance workflows, provider adapters, production OIDC, a Celery dispatcher, backup-restore drills.
+Out of that original milestone: ledger, fees, distributions, prospects, maintenance workflows, provider adapters, production OIDC, a Celery dispatcher, and a backup-restore drill. Celery was a proposed local package, not a credential. The current dispatcher is the PostgreSQL worker in `grok_bot.domain.outbox_worker`.

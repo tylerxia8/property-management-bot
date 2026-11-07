@@ -18,7 +18,7 @@ Local password step-up stays on the dev/test login router. Production does not m
 
 ## Worker and webhooks
 
-PRD §7.2 names Celery and Redis. This repository does not run either. The durable record remains PostgreSQL. A local worker claims pending outbox rows with `app_outbox_progress`, retries with backoff, and marks `FAILED` after five attempts. It never opens a network connection. `delivered` is false. Redis is not installed and is not a source of truth.
+PRD §7.2 names Celery and Redis. Those are local packages in the proposed stack, not accounts or credentials. This repository does not install them. The durable record remains PostgreSQL. A local worker claims pending outbox rows with `app_outbox_progress`, retries with backoff, and marks `FAILED` after five attempts. It never opens a network connection. `delivered` is false. Redis is not a source of truth.
 
 Signed webhooks are accepted only when `APP_ENV` is development or test and `WEBHOOK_SECRET` is at least 16 characters. Production returns `WEBHOOK_NOT_CONFIGURED` even if a secret is present. Invalid signatures and stale timestamps write no inbox row. The same provider event id does not post a second journal. The worker posts an invoice payable only when the signed actor is a manager or organization administrator in that organization.
 
