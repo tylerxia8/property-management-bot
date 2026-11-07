@@ -21,6 +21,7 @@ API variables in Railway; generate independent passwords and never commit them:
 APP_ENV=test
 DEMO_FIXTURE=sample
 API_HOST=::
+RAILWAY_DOCKERFILE_PATH=Dockerfile.railway
 DEMO_BOOTSTRAP_DATABASE_URL=${{Postgres.DATABASE_URL}}
 GROK_APP_PASSWORD=<random alphanumeric password>
 GROK_MIGRATOR_PASSWORD=<random alphanumeric password>
@@ -37,9 +38,13 @@ APPROVAL_TTL_HOURS=0
 Leave `WEBHOOK_SECRET` unset. The bootstrap refuses environments other than the
 test sample, then invokes normal migration and seeding. Never use real data.
 
+Set `WEB_HOST=::`, `PORT=3000`, and `NEXT_PUBLIC_HOSTED_DEMO=true` on `web`.
 Set `API_INTERNAL_ORIGIN=http://api.railway.internal:8000` on `web` before its
 build, using the API's actual private hostname. The browser uses same-origin
 `/v1` requests. Railway's web start command listens on IPv6 for private networking.
+The hosted build sends its role token in `X-Grok-Authorization`, preserving the
+browser's Basic authentication for the gateway. After authenticating the site
+password, the gateway forwards that token as the API's Authorization header.
 
 On `gateway`, configure:
 

@@ -7,5 +7,8 @@
     basic_auth {
         {$DEMO_USER} {$DEMO_PASSWORD_HASH}
     }
-    reverse_proxy {$WEB_INTERNAL_ORIGIN}
+    reverse_proxy {$WEB_INTERNAL_ORIGIN} {
+        header_up Authorization {http.request.header.X-Grok-Authorization}
+        header_up -X-Grok-Authorization
+    }
 }
