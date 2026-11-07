@@ -4,8 +4,9 @@ Deploy PostgreSQL, `api`, `web`, and `gateway` in one Railway project. Only
 `gateway` gets a public HTTPS domain. Its shared password protects every page
 and API request. This is a shared fictional-data demo, not a production portal.
 
-Upload each directory as its service root (`railway up --path-as-root`). The
-included `railway.toml` files select Docker builds:
+Upload each directory as its service root (`railway up --path-as-root`). Docker
+build settings are supplied in `railway.toml`; for CLI uploads, explicitly set
+the API's `RAILWAY_DOCKERFILE_PATH` variable as shown below:
 
 | Service | Source directory | Configuration |
 | --- | --- | --- |
@@ -41,7 +42,7 @@ test sample, then invokes normal migration and seeding. Never use real data.
 Set `WEB_HOST=::`, `PORT=3000`, and `NEXT_PUBLIC_HOSTED_DEMO=true` on `web`.
 Set `API_INTERNAL_ORIGIN=http://api.railway.internal:8000` on `web` before its
 build, using the API's actual private hostname. The browser uses same-origin
-`/v1` requests. Railway's web start command listens on IPv6 for private networking.
+`/v1` requests. The web container listens on IPv6 for private networking.
 The hosted build sends its role token in `X-Grok-Authorization`, preserving the
 browser's Basic authentication for the gateway. After authenticating the site
 password, the gateway forwards that token as the API's Authorization header.
@@ -74,3 +75,13 @@ Everyone with the shared password can switch roles. Live banking, payments,
 messaging, external calendars, formal screening, and production identity/media
 services remain disabled. This setup does not add per-person access controls or
 a production backup policy.
+
+## Current deployment
+
+- Website: https://gateway-production-fc87.up.railway.app
+- Railway project: https://railway.com/project/c39d7bf1-be61-4777-98ac-b83ee88e9002
+- Verified: hosted authentication, all five role APIs, disabled outbound switches,
+  and the Chromium walkthrough for rent, prospect review, manager exception,
+  tour hold, maintenance emergency, and owner statement.
+- Deployment currently uses CLI source uploads. Merging changes on GitHub does
+  not redeploy them automatically; upload the relevant service directory again.
