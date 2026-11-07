@@ -200,7 +200,8 @@ def test_pro_06_protected_fields_do_not_change_the_evaluation(client, migrator_e
     assert denial.status_code == 422
 
 
-def test_pro_07_one_hold_wins_the_same_window(client, migrator_engine, app):
+@pytest.mark.parametrize("race_attempt", range(5))
+def test_pro_07_one_hold_wins_the_same_window(client, migrator_engine, app, race_attempt):
     staff = _people(client, migrator_engine, extra_prospect=True)
     _publish_fixture(client, staff, ratio=2)
     first = _start(client, staff, who="prospect")
@@ -232,7 +233,7 @@ def test_pro_07_one_hold_wins_the_same_window(client, migrator_engine, app):
             {"id": staff["org_id"]},
         ).scalar()
     assert active == 1
-    del app
+    del app, race_attempt
 
 
 def test_pro_08_dst_and_occupied_access(client, migrator_engine):
