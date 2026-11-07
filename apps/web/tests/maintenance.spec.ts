@@ -16,7 +16,7 @@ test("tenant report keeps a ticket and does not claim responders were contacted"
   await page.getByLabel("Follow-up").fill("I smell gas");
   await page.getByRole("button", { name: "Send follow-up" }).click();
   await expect(page.getByText("If there is immediate danger, leave the area if safe and call 911 or the appropriate emergency service.")).toBeVisible();
-  await expect(page.getByText("Do not operate electrical switches.")).toBeVisible();
+  await expect(page.getByText("Do not operate electrical switches.", { exact: true })).toBeVisible();
   const text = (await page.locator("main").innerText()).toLowerCase();
   expect(text).not.toContain("were contacted");
   expect(text).not.toContain("911 was called");

@@ -32,6 +32,12 @@ const navigation: {
     role: "tenant",
   },
   {
+    label: "Maintenance queue",
+    href: "/maintenance/manage",
+    icon: "review",
+    role: "property_manager",
+  },
+  {
     label: "Manager reviews",
     href: "/reviews",
     icon: "review",

@@ -1,8 +1,8 @@
 // Generated from the FastAPI OpenAPI document by apps/api/scripts/generate_api_types.py.
 // Do not edit by hand.
 //
-// Component schemas: 191.
-// Success responses with a schema: 111.
+// Component schemas: 198.
+// Success responses with a schema: 113.
 // Success responses without a schema, typed as unknown: 0.
 // Those unknown responses are omitted from the route declaration, not filled in here.
 export const API_VERSION = "0.1.0";
@@ -689,6 +689,57 @@ export interface MaintenanceConfirmOut {
   status: string;
 }
 
+export interface MaintenanceContextOut {
+  can_manage: boolean;
+  homes: MaintenanceHomeOut[];
+  photos_enabled: boolean;
+  request_id: string;
+}
+
+export interface MaintenanceHistoryOut {
+  created_at: string;
+  reason: string | null;
+  status: string;
+}
+
+export interface MaintenanceHomeOut {
+  lease_id: string;
+  property_name: string;
+  unit_id: string;
+  unit_label: string;
+}
+
+export interface MaintenanceMediaOut {
+  id: string;
+  rejection_reason: string | null;
+  status: string;
+}
+
+export interface MaintenanceMessageOut {
+  body: string;
+  created_at: string;
+  id: string;
+}
+
+export interface MaintenancePageOut {
+  items: MaintenanceSummaryOut[];
+  next_cursor: string | null;
+  request_id: string;
+}
+
+export interface MaintenanceSummaryOut {
+  category: string;
+  created_at: string;
+  description: string;
+  emergency: boolean;
+  id: string;
+  priority: string;
+  property_name: string | null;
+  status: string;
+  ticket_number: number;
+  unit_label: string | null;
+}
+
 export interface MatchBody {
   amount_cents: number;
   bank_transaction_id: string;
@@ -719,6 +770,7 @@ export interface MeOut {
 export interface MessageBody {
   body: string;
   classifier_result?: string | null;
+  field_key?: string | null;
 }
 
 export interface NoteBody {
@@ -1267,7 +1319,7 @@ export interface TicketBody {
   category?: string | null;
   contact?: string | null;
   contact_id?: string | null;
-  description?: string;
+  description: string;
   entry_permission?: string | null;
   frequency?: string | null;
   lease_id?: string | null;
@@ -1282,19 +1334,26 @@ export interface TicketBody {
 
 export interface TicketContractorOut {
   category: string;
+  created_at: string;
+  description: string;
   emergency: boolean;
   handoff: boolean;
+  history: MaintenanceHistoryOut[];
   id: string;
   intake: IntakeFieldOut[];
+  media: MaintenanceMediaOut[];
+  messages: MaintenanceMessageOut[];
   missing_fields: string[];
   model_adapter: string;
   next_questions: string[];
   priority: string;
+  property_name: string | null;
   questions_source: string;
   request_id: string;
   safety_message: string | null;
   status: string;
   ticket_number: number;
+  unit_label: string | null;
   urgent_triage: boolean;
   verification: string;
   video_understanding: boolean;
@@ -1319,20 +1378,27 @@ export interface TicketPublicOut {
 
 export interface TicketStaffOut {
   category: string;
+  created_at: string;
+  description: string;
   emergency: boolean;
   handoff: boolean;
+  history: MaintenanceHistoryOut[];
   id: string;
   intake: IntakeFieldOut[];
   intake_token: string;
+  media: MaintenanceMediaOut[];
+  messages: MaintenanceMessageOut[];
   missing_fields: string[];
   model_adapter: string;
   next_questions: string[];
   priority: string;
+  property_name: string | null;
   questions_source: string;
   request_id: string;
   safety_message: string | null;
   status: string;
   ticket_number: number;
+  unit_label: string | null;
   urgent_triage: boolean;
   verification: string;
   video_understanding: boolean;
@@ -2137,6 +2203,18 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/maintenance-context": {
+    get: {
+      responses: {
+        "200": MaintenanceContextOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
   "/v1/maintenance-escalations/advance": {
     post: {
       responses: {
@@ -2162,7 +2240,24 @@ export interface apiPaths {
     };
   };
   "/v1/maintenance-tickets": {
+    get: {
+      parameters: {
+        limit?: number;
+        before?: number | null;
+      };
+      responses: {
+        "200": MaintenancePageOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
     post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
       requestBody: TicketBody;
       responses: {
         "201": TicketStaffOut | TicketContractorOut | TicketPublicOut;

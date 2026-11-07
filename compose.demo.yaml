@@ -55,10 +55,13 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
       CONTACT_ENCRYPTION_KEY: ${CONTACT_ENCRYPTION_KEY}
       PAYMENT_SIMULATOR: unset
-      MEDIA_SCANNER: unset
+      MEDIA_SCANNER: fixture
+      MEDIA_ROOT: /data/media
       WEBHOOK_SECRET: ""
       STEP_UP_MAX_AGE_SECONDS: "0"
       APPROVAL_TTL_HOURS: "0"
+    volumes:
+      - media:/data/media
     healthcheck:
       test:
         [
@@ -102,3 +105,5 @@ networks:
 volumes:
   pg:
     name: grok-property-sample-pg
+  media:
+    name: grok-property-sample-media

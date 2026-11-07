@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -13,6 +14,7 @@ from grok_bot.db import set_tenant
 from grok_bot.domain.accounting import approve_invoice, submit_invoice
 from grok_bot.domain.media_scan import sha256_file, scan_stored_file
 from grok_bot.domain.records import write_audit, write_outbox
+from grok_bot.domain.maintenance_workspace import ticket_details
 from grok_bot.errors import problem
 from grok_bot.redaction import redact
 
@@ -60,6 +62,13 @@ LIFE_SAFETY_TERMS = (
     "collapse",
     "collapsing",
     "sagging ceiling",
+    "carbon monoxide",
+    "co alarm",
+    "gas smell",
+    "burning smell",
+    "exposed wire",
+    "live wire",
+    "spark",
 )
 URGENT_TERMS = ("no heat", "no cooling", "no hot water")
 PLAYBOOKS = {
@@ -113,6 +122,9 @@ def create_verified_ticket(session, organization_id, user_id, body, secret: str,
     requested_unit = body.get("unit_id")
     requested_lease = body.get("lease_id")
     lease = _lease_for_user(session, organization_id, user_id, requested_unit, requested_lease)
+    reported_safety = " ".join(str(body.get(k) or "") for k in ("description", "location", "safety_concerns"))
+    if (requested_unit or requested_lease) and lease is None and not _classify(reported_safety)[0]:
+        problem(422, "INVALID_HOME", "Choose a home linked to your tenancy.")
     text_value = body.get("description") or ""
     return _create_ticket(
         session,
@@ -148,8 +160,11 @@ def create_unverified_ticket(session, organization_id, description: str, secret:
     )
 
 
-def add_message(session, organization_id, ticket_id, body: str, classifier_result: str | None, secret: str, clock, actor_id) -> dict:
+def add_message(session, organization_id, ticket_id, body: str, classifier_result: str | None, secret: str, clock, actor_id, field_key: str | None = None) -> dict:
     ticket = _lock_ticket(session, organization_id, ticket_id)
+    structured_answer = field_key is not None
+    if field_key is not None and field_key != "general" and field_key not in PLAYBOOKS.get(ticket["category"], PLAYBOOKS["general"]):
+        problem(422, "VALIDATION_ERROR", "Choose a valid follow-up question.")
     session.execute(
         text(
             """
@@ -198,15 +213,19 @@ def add_message(session, organization_id, ticket_id, body: str, classifier_resul
         )
         _open_escalation(session, organization_id, ticket_id, actor_id, now, life_safety=False)
     asked = ticket["asked_fields"] if isinstance(ticket["asked_fields"], list) else json.loads(ticket["asked_fields"] or "[]")
-    for field_key in asked:
-        _set_field(session, organization_id, ticket_id, field_key, "PROVIDED", body, None)
-    attempts = ticket["clarification_attempts"] + (1 if asked or _handoff_requested(body) else 0)
+    if field_key is not None:
+        asked = [] if field_key == "general" else [field_key]
+    if structured_answer:
+        for answered_field in asked:
+            _set_field(session, organization_id, ticket_id, answered_field, "PROVIDED", body, None)
+    attempts = ticket["clarification_attempts"] + (1 if not structured_answer and (asked or _handoff_requested(body)) else 0)
     if _handoff_requested(body) or attempts >= 3:
         session.execute(
             text(
                 """
                 UPDATE maintenance_tickets
-                SET handoff = true, clarification_attempts = :attempts, asked_fields = '[]'::jsonb
+                SET handoff = true, clarification_attempts = :attempts, asked_fields = '[]'::jsonb,
+                    status = CASE WHEN status = 'INTAKE_OPEN' THEN 'MANAGER_REVIEW' ELSE status END
                 WHERE organization_id = :organization_id AND id = :id
                 """
             ),
@@ -446,6 +465,8 @@ def store_and_scan(session, settings, organization_id, media_id, payload: bytes 
             "id": media_id,
         },
     )
+    if result.ready:
+        _set_field(session, organization_id, row["ticket_id"], "media", "PROVIDED", "Photo attached", None)
     return {"id": str(media_id), "status": status, "scan_code": result.code, "scanner_name": result.scanner_name, "ticket_id": str(row["ticket_id"])}
 
 
@@ -791,6 +812,7 @@ def get_ticket(session, organization_id, ticket_id, secret: str, viewer: str, pe
             "video_understanding": False,
             "intake_token": payload["intake_token"],
         }
+    payload.update(ticket_details(session, organization_id, ticket_id))
     return payload
 
 
@@ -943,6 +965,8 @@ def transition_ticket(session, organization_id, ticket_id, action: str, reason: 
         before_state={"status": ticket["status"]},
         after_state={"status": new_status, "reason": reason},
     )
+    session.execute(text("INSERT INTO maintenance_status_updates (id, organization_id, ticket_id, status, reason) VALUES (:id,:org,:ticket,:status,:reason)"),
+                    {"id": uuid4(), "org": organization_id, "ticket": ticket_id, "status": new_status, "reason": reason})
     return {"id": str(ticket_id), "status": new_status}
 
 
@@ -986,7 +1010,8 @@ def mint_org_token(secret: str, organization_id: UUID) -> str:
 
 
 def _create_ticket(session, organization_id, secret, description, verification, unit_id, lease_id, reporter_user_id, identity_status, when, intake, category, public=False):
-    life_safety, urgent = _classify(description)
+    safety_text = " ".join(str(part or "") for part in (description, (intake or {}).get("location"), (intake or {}).get("safety_concerns")))
+    life_safety, urgent = _classify(safety_text)
     chosen = category if category in PLAYBOOKS else _category(description)
     status = "TRIAGE_PENDING" if verification == "UNVERIFIED" and not life_safety else "INTAKE_OPEN"
     number = session.execute(
@@ -1027,7 +1052,7 @@ def _create_ticket(session, organization_id, secret, description, verification, 
             "emergency": life_safety,
             "urgent_triage": urgent and not life_safety,
             "description": description,
-            "safety_context": "gas" if life_safety and _gas(description) else "",
+            "safety_context": "gas" if life_safety and _gas(safety_text) else "",
         },
     )
     session.execute(
@@ -1046,7 +1071,7 @@ def _create_ticket(session, organization_id, secret, description, verification, 
     _apply_reported_fields(session, organization_id, ticket_id, intake or {})
     if life_safety or urgent:
         _open_escalation(session, organization_id, ticket_id, reporter_user_id, when, life_safety=life_safety)
-    viewer = "public" if public or verification == "UNVERIFIED" else "manager"
+    viewer = "public" if public else "manager"
     return get_ticket(session, organization_id, ticket_id, secret, viewer, persist_questions=True)
 
 
@@ -1209,23 +1234,31 @@ def _category(description: str) -> str:
     text_value = description.lower()
     if any(word in text_value for word in ("sink", "leak", "drip", "pipe")):
         return "leak"
-    if "heat" in text_value or "hvac" in text_value or "air condition" in text_value:
+    if any(word in text_value for word in ("heat", "hvac", "air condition", "thermostat", "cooling")):
         return "hvac"
     if "outlet" in text_value or "electrical" in text_value or "breaker" in text_value:
         return "electrical"
+    for category, terms in (
+        ("appliance", ("dishwasher", "refrigerator", "fridge", "washer", "dryer", "oven", "stove", "freezer")),
+        ("structural", ("ceiling", "wall", "roof", "foundation")),
+        ("pest_mold", ("mold", "mould", "pest", "cockroach", "mice", "rats")),
+        ("lock", ("lock", "door", "key")),
+    ):
+        if any(term in text_value for term in terms):
+            return category
     return "general"
 
 
 def _classify(description: str) -> tuple[bool, bool]:
     text_value = description.lower()
-    life = any(term in text_value for term in LIFE_SAFETY_TERMS)
-    urgent = any(term in text_value for term in URGENT_TERMS)
+    life = any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text_value) for term in LIFE_SAFETY_TERMS)
+    urgent = any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text_value) for term in URGENT_TERMS)
     return life, urgent
 
 
 def _gas(description: str) -> bool:
     text_value = description.lower()
-    return any(term in text_value for term in ("smell gas", "gas leak", "smell of gas", "rotten egg"))
+    return any(term in text_value for term in ("smell gas", "gas leak", "smell of gas", "rotten egg", "gas smell"))
 
 
 def _handoff_requested(body: str) -> bool:

@@ -771,6 +771,64 @@ class TicketContractorOut(APIModel):
     questions_source: Literal["template"]
     video_understanding: Literal[False]
     request_id: str
+    description: str
+    created_at: str
+    property_name: str | None
+    unit_label: str | None
+    messages: list["MaintenanceMessageOut"]
+    media: list["MaintenanceMediaOut"]
+    history: list["MaintenanceHistoryOut"]
+
+
+class MaintenanceMessageOut(APIModel):
+    id: str
+    body: str
+    created_at: str
+
+
+class MaintenanceMediaOut(APIModel):
+    id: str
+    status: str
+    rejection_reason: str | None
+
+
+class MaintenanceHistoryOut(APIModel):
+    status: str
+    reason: str | None
+    created_at: str
+
+
+class MaintenanceHomeOut(APIModel):
+    lease_id: str
+    unit_id: str
+    unit_label: str
+    property_name: str
+
+
+class MaintenanceContextOut(APIModel):
+    homes: list[MaintenanceHomeOut]
+    can_manage: bool
+    photos_enabled: bool
+    request_id: str
+
+
+class MaintenanceSummaryOut(APIModel):
+    id: str
+    ticket_number: int
+    status: str
+    category: str
+    description: str
+    emergency: bool
+    priority: str
+    created_at: str
+    property_name: str | None
+    unit_label: str | None
+
+
+class MaintenancePageOut(APIModel):
+    items: list[MaintenanceSummaryOut]
+    next_cursor: str | None
+    request_id: str
 
 
 class TicketStaffOut(TicketContractorOut):

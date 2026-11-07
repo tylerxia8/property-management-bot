@@ -92,6 +92,13 @@ def create_hold(session, organization_id, body: dict, clock) -> dict:
         problem(409, "HUMAN_REVIEW_REQUIRED", "This prospect needs a person before a tour can be held.")
     schedule = _schedule(session, organization_id, body["property_id"])
     starts, ends = resolve_window(body["local_start"], body.get("local_end"), body["timezone"], body.get("dst_resolution"), schedule["duration_minutes"])
+    # Serialize competing inserts for a resource before checking its exclusion
+    # constraint. Concurrent GiST inserts can otherwise deadlock rather than
+    # returning the expected slot conflict. The lock ends with this transaction.
+    session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+        {"scope": f"tour-hold:{organization_id}:{body['resource_id']}"},
+    )
     _expire_holds(session, organization_id, body["resource_id"], clock.now())
     buffer = timedelta(minutes=schedule["buffer_minutes"])
     appointment_id = uuid4()

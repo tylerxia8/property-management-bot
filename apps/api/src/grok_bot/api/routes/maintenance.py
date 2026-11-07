@@ -3,9 +3,9 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -46,6 +46,10 @@ from grok_bot.domain.maintenance import (
     transition_ticket,
 )
 from grok_bot.errors import problem
+from grok_bot.domain.maintenance_workspace import homes, ticket_list, report_once
+from grok_bot.domain.idempotency import request_hash
+from grok_bot.api.deps import require_idempotency_key
+from grok_bot.api.success import MaintenanceContextOut, MaintenancePageOut
 from grok_bot.api.success import (
     ERROR_RESPONSES,
     AckOut,
@@ -77,7 +81,7 @@ router = APIRouter(responses=ERROR_RESPONSES)
 
 class TicketBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    description: str = ""
+    description: str = Field(min_length=1, max_length=5000)
     unit_id: UUID | None = None
     lease_id: UUID | None = None
     category: str | None = None
@@ -92,6 +96,13 @@ class TicketBody(BaseModel):
     entry_permission: str | None = None
     safety_concerns: str | None = None
 
+    @field_validator("description")
+    @classmethod
+    def meaningful_description(cls, value):
+        if not value.strip():
+            raise ValueError("Describe the problem before sending your request.")
+        return value.strip()
+
 
 class UnverifiedBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -102,8 +113,16 @@ class UnverifiedBody(BaseModel):
 
 class MessageBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    body: str = Field(min_length=1)
+    body: str = Field(min_length=1, max_length=5000)
     classifier_result: str | None = None
+    field_key: str | None = None
+
+    @field_validator("body")
+    @classmethod
+    def meaningful_body(cls, value):
+        if not value.strip():
+            raise ValueError("Write a follow-up before sending it.")
+        return value.strip()
 
 
 class IntakeBody(BaseModel):
@@ -208,18 +227,43 @@ def post_intake_link(request: Request, principal: Principal = Depends(get_princi
     return {"token": mint_org_token(request.app.state.settings.session_secret, principal.organization_id), "request_id": request_id_of(request)}
 
 
-@router.post("/maintenance-tickets", response_model=TicketOut, status_code=201)
-def post_ticket(body: TicketBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+@router.get("/maintenance-context", response_model=MaintenanceContextOut)
+def get_context(request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+    _require_workspace(principal)
+    return {"homes": homes(session, principal.organization_id, principal.user_id), "can_manage": principal.allows("maintenance.manage"), "photos_enabled": request.app.state.settings.fixture_media_scanner_allowed, "request_id": request_id_of(request)}
+
+
+@router.get("/maintenance-tickets", response_model=MaintenancePageOut)
+def list_tickets(request: Request, limit: int = Query(default=30, ge=1, le=100), before: int | None = Query(default=None, ge=1), principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+    _require_workspace(principal)
+    result = ticket_list(session, principal.organization_id, principal.user_id, principal.allows("maintenance.manage"), limit, before)
+    return {**result, "request_id": request_id_of(request)}
+
+
+def _require_workspace(principal):
     if not (principal.allows("maintenance.report") or principal.allows("maintenance.manage")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
-    result = create_verified_ticket(
-        session,
-        principal.organization_id,
-        principal.user_id,
-        body.model_dump(),
-        request.app.state.settings.session_secret,
-        request.app.state.clock.now(),
-    )
+
+
+@router.post("/maintenance-tickets", response_model=TicketOut, status_code=201)
+def post_ticket(body: TicketBody, request: Request, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"), principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+    if not (principal.allows("maintenance.report") or principal.allows("maintenance.manage")):
+        problem(403, "FORBIDDEN", "You do not have access to this action.")
+    def create():
+        return create_verified_ticket(
+            session,
+            principal.organization_id,
+            principal.user_id,
+            body.model_dump(),
+            request.app.state.settings.session_secret,
+            request.app.state.clock.now(),
+        )
+    if idempotency_key is not None:
+        key = require_idempotency_key(idempotency_key)
+        hashed = request_hash("POST", "/v1/maintenance-tickets", {**body.model_dump(mode="json"), "actor": str(principal.user_id)})
+        result = report_once(session, principal, key, hashed, create, lambda ticket_id: get_ticket(session, principal.organization_id, ticket_id, request.app.state.settings.session_secret, "tenant"))
+    else:
+        result = create()
     result["request_id"] = request_id_of(request)
     return JSONResponse(status_code=201, content=result)
 
@@ -283,6 +327,7 @@ def post_message(ticket_id: UUID, body: MessageBody, request: Request, session: 
         request.app.state.settings.session_secret,
         request.app.state.clock,
         None if actor is None else actor.user_id,
+        field_key=body.field_key,
     )
     viewer = "public" if actor is None else can_view_ticket(session, organization_id, ticket_id, actor.user_id, actor.roles)
     if viewer is None:
@@ -317,7 +362,14 @@ def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Se
 async def post_bytes(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session, scope="function")):
     payload = _media_payload(request, token, media_id, "media_upload")
     set_tenant(session, UUID(payload["org"]), None, intake_ticket_id=UUID(payload["tid"]), access_mode="intake")
-    stored = save_quarantine(session, request.app.state.settings, UUID(payload["org"]), media_id, await request.body())
+    row = _media(session, UUID(payload["org"]), media_id)
+    limit = min(row["size_bytes"] or 0, 200 * 1024 * 1024)
+    chunks = bytearray()
+    async for chunk in request.stream():
+        if len(chunks) + len(chunk) > limit:
+            problem(413, "MEDIA_LIMIT", "The upload exceeds its declared size.")
+        chunks.extend(chunk)
+    stored = save_quarantine(session, request.app.state.settings, UUID(payload["org"]), media_id, bytes(chunks))
     stored["request_id"] = request_id_of(request)
     return stored
 
