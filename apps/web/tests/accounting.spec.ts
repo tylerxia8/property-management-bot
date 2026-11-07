@@ -46,8 +46,8 @@ test("accounting imports CSV safely and reports validation and evidence conflict
   await expect(page.getByRole("status")).toContainText("Imported 0 new transactions; 1 exact repeats.");
   await upload.setInputFiles({ ...file, buffer: Buffer.from(csv.replace(",10001,", ",20000,")) });
   await submit.click();
-  await expect(page.getByRole("alert")).toContainText("different amount or date");
+  await expect(page.getByRole("alert").filter({ hasText: "different amount or date" })).toBeVisible();
   await upload.setInputFiles({ ...file, buffer: Buffer.from(csv.replace(",10001,", ",10.01,")) });
   await submit.click();
-  await expect(page.getByRole("alert")).toContainText("Line 2.");
+  await expect(page.getByRole("alert").filter({ hasText: "Line 2." })).toBeVisible();
 });
