@@ -10,4 +10,6 @@ The product specification covers:
 
 Read the **[Engineering Product Requirements Document — Version 2.0](PRD.md)** for workflows, database design, API contracts, accounting formulas, security requirements, acceptance tests, implementation phases, and production gates.
 
-This repository currently contains the engineering specification only. The application has not been implemented. Business-specific fees, banking providers, landlord agreements, and legally reviewed screening policies remain explicit configuration and production prerequisites.
+M0 is the foundation slice: organization isolation, dev/test authentication that fails closed in production, property and unit commands, and a small web shell. Ledger, screening, maintenance, and live providers are not implemented. Local setup and the current test evidence are in [docs/SETUP.md](docs/SETUP.md) and [docs/evidence](docs/evidence).
+
+Business-specific fees, banking providers, landlord agreements, and legally reviewed screening policies remain explicit configuration and production prerequisites.

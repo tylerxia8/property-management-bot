@@ -1,0 +1,67 @@
+
+up to date, audited 38 packages in 318ms
+
+8 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> grok-bot-web@0.1.0 test:unit
+> node --test tests/no-database.test.mjs
+
+TAP version 13
+# Subtest: tests/no-database.test.mjs
+ok 1 - tests/no-database.test.mjs
+  ---
+  duration_ms: 26.047812
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 31.245633
+
+> grok-bot-web@0.1.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+✓ Running next.config.ts took 19ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 89ms
+  Running TypeScript ...
+  Finished TypeScript in 190ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/5) ...
+  Generating static pages using 3 workers (1/5) 
+  Generating static pages using 3 workers (2/5) 
+  Generating static pages using 3 workers (3/5) 
+✓ Generating static pages using 3 workers (5/5) in 133ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /login
+├ ○ /properties
+└ ƒ /properties/[id]
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+> grok-bot-web@0.1.0 test:e2e
+> playwright test
+
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/shell.spec.ts:11:1 › local shell discloses dev auth and enforces role capabilities (1.2s)
+
+  1 passed (2.1s)

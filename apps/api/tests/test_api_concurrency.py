@@ -1,0 +1,70 @@
+from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
+
+from fastapi.testclient import TestClient
+
+from tests.support import PROPERTY, bearer, login, seed_member
+
+
+def test_concurrent_if_match_allows_one_update(app, client, migrator_engine):
+    org_id = uuid4()
+    with migrator_engine.begin() as conn:
+        seed_member(
+            conn,
+            org_id=org_id,
+            user_id=uuid4(),
+            subject="race-admin@example.test",
+            password="local-admin-password",
+            roles=["organization_administrator", "property_manager"],
+        )
+    token = bearer(login(client, "race-admin@example.test", "local-admin-password"))
+    created = client.post(
+        "/v1/properties",
+        headers={**token, "Idempotency-Key": "race-create"},
+        json=PROPERTY,
+    )
+    assert created.status_code == 201, created.text
+    property_id = created.json()["id"]
+
+    def patch(name: str):
+        with TestClient(app) as local:
+            return local.patch(
+                f"/v1/properties/{property_id}",
+                headers={**token, "If-Match": "1"},
+                json={"name": name},
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(patch, ("Left", "Right")))
+    statuses = sorted(response.status_code for response in responses)
+    assert statuses == [200, 409]
+    final = client.get(f"/v1/properties/{property_id}", headers=token)
+    assert final.json()["version"] == 2
+
+
+def test_concurrent_same_idempotency_key_creates_one_property(app, client, migrator_engine):
+    with migrator_engine.begin() as conn:
+        seed_member(
+            conn,
+            org_id=uuid4(),
+            user_id=uuid4(),
+            subject="idem-admin@example.test",
+            password="local-admin-password",
+            roles=["organization_administrator"],
+        )
+    token = bearer(login(client, "idem-admin@example.test", "local-admin-password"))
+
+    def post():
+        with TestClient(app) as local:
+            return local.post(
+                "/v1/properties",
+                headers={**token, "Idempotency-Key": "same-key"},
+                json=PROPERTY,
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda _: post(), (1, 2)))
+    assert [response.status_code for response in responses] == [201, 201]
+    assert responses[0].json()["id"] == responses[1].json()["id"]
+    listed = client.get("/v1/properties", headers=token)
+    assert len(listed.json()["items"]) == 1
