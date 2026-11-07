@@ -42,7 +42,7 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
   await page.getByRole("link", { name: "Canal House" }).click();
   await page.getByLabel("Unit label").fill("Main");
   await page.getByRole("button", { name: "Add unit" }).click();
-  await expect(page.getByText("Main")).toBeVisible();
+  await expect(page.getByText("Main", { exact: true })).toBeVisible();
   await page.goto("/properties");
   await page.getByRole("button", { name: "Sign out" }).click();
 
