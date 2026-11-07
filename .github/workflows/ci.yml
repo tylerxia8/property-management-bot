@@ -36,6 +36,10 @@ jobs:
           sudo apt-get install -y postgresql postgresql-contrib ffmpeg
           sudo systemctl enable --now postgresql
           pg_isready -h 127.0.0.1
+          # psql runs as the postgres user and opens SQL files by path.
+          # The runner home directory is not traversable by that user.
+          sudo chmod a+rx /home/runner /home/runner/work /home/runner/work/property-management-bot "$GITHUB_WORKSPACE"
+          sudo chmod -R a+rX "$GITHUB_WORKSPACE"
 
       - name: Install locked Python packages
         run: |
