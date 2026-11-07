@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/domain/records.py
+# hypothesis_version: 6.151.10
+
+[',', ':', 'action', 'actor_id', 'actor_type', 'after_state', 'before_state', 'dedup_key', 'event_type', 'id', 'organization_id', 'payload', 'property_id', 'request_id', 'system', 'target_id', 'target_type', 'target_version', 'user']

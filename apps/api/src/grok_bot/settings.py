@@ -1,6 +1,8 @@
 import base64
 from functools import lru_cache
 
+from urllib.parse import urlparse
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,6 +27,7 @@ class Settings(BaseSettings):
     webhook_replay_seconds: int = 300
     media_scanner: str = "unset"
     media_root: str = "var/media"
+    demo_fixture: str = "unset"
 
     @field_validator("app_env")
     @classmethod
@@ -61,6 +64,20 @@ class Settings(BaseSettings):
     @property
     def allows_local_auth(self) -> bool:
         return self.app_env in {"development", "test"}
+
+    @property
+    def database_name(self) -> str:
+        return urlparse(self.database_url).path.rsplit("/", 1)[-1]
+
+    @property
+    def allows_demo_session(self) -> bool:
+        migration_name = urlparse(self.migration_database_url).path.rsplit("/", 1)[-1]
+        return (
+            self.allows_local_auth
+            and self.demo_fixture == "sample"
+            and self.database_name == "grok_demo_sample"
+            and migration_name == "grok_demo_sample"
+        )
 
     @property
     def fixture_ledger_settlement_allowed(self) -> bool:

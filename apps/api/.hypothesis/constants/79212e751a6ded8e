@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/scripts/generate_api_types.py
+# hypothesis_version: 6.151.10
+
+['      responses: {', '      };', '    };', '  };', ' & ', ' | ', '$ref', '/', '//', '2', '?', 'additionalProperties', 'allOf', 'anyOf', 'application/json', 'apps', 'array', 'boolean', 'components', 'content', 'delete', 'enum', 'false', 'get', 'integer', 'items', 'lib', 'null', 'number', 'object', 'patch', 'paths', 'post', 'properties', 'put', 'requestBody', 'required', 'responses', 'schema', 'schemas', 'string', 'true', 'type', 'unknown', 'utf-8', 'web', '}']

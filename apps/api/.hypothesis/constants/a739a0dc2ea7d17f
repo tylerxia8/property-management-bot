@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/domain/contacts.py
+# hypothesis_version: 6.151.10
+
+['ciphertext', 'id', 'key_version', 'kind', 'nonce', 'organization_id', 'party_id', 'payload_ciphertext', 'payload_nonce', 'provider', 'provider_event_id', 'utf-8']

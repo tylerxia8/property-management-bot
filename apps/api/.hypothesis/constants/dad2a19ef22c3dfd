@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/maintenance.py
+# hypothesis_version: 6.151.10
+
+[201, 300, 401, 403, 404, 422, '/contractor-profiles', '/maintenance-tickets', 'Content-Type', 'FORBIDDEN', 'MEDIA_NOT_READY', 'Media not found.', 'NOT_FOUND', 'QUARANTINED', 'READY', 'Sign-in is required.', 'Ticket not found.', 'UNAUTHENTICATED', 'UNSUPPORTED_CURRENCY', 'USD', 'VALIDATION_ERROR', 'amr', 'authorization', 'bearer ', 'contractor', 'delivered_at', 'derivative_key', 'download_url', 'env', 'exp', 'expires_in_seconds', 'forbid', 'id', 'intake', 'intake_link', 'intake_org', 'invoices.submit', 'leases.write', 'maintenance', 'maintenance.assign', 'maintenance.manage', 'maintenance.report', 'maintenance.respond', 'manager', 'media_download', 'media_upload', 'org', 'organization_id', 'public', 'request_id', 'required_headers', 'scanner_name', 'status', 'sub', 'tenant', 'ticket', 'ticket_id', 'tid', 'token', 'unverified', 'upload_url', 'v', 'video_understanding']

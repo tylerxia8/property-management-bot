@@ -55,6 +55,12 @@ button { cursor: pointer; }
   align-items: center;
 }
 
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .card {
   border-top: 1px solid #d6d3d1;
   padding: 12px 0;

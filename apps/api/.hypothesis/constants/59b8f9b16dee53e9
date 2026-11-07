@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/db.py
+# hypothesis_version: 6.151.10
+
+['access_mode', 'actor_id', 'checkout', 'intake_ticket_id', 'organization_id']

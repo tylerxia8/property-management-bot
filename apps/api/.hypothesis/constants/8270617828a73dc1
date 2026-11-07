@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/units.py
+# hypothesis_version: 6.151.10
+
+[200, 201, 'ETag', 'Idempotency-Key', 'Idempotency-Status', 'If-Match', 'POST', 'units.create', 'units.read', 'units.update']

@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/health.py
+# hypothesis_version: 6.151.10
+
+['/health', 'local_auth_enabled', 'ok', 'request_id', 'status']

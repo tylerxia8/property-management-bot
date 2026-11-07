@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/webhooks.py
+# hypothesis_version: 6.151.10
+
+[202, '/webhooks/{provider}', 'request_id', 'x-webhook-signature']

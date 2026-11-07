@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/domain/media_scan.py
+# hypothesis_version: 6.151.10
+
+[b'M4V ', b'MZ', b'PK\x03\x04', b'avc1', b'ftyp', b'hei', b'heic', b'heix', b'hevc', b'iso2', b'isom', b'mif1', b'mp4', b'mp41', b'mp42', b'qt  ', b'\x7fELF', b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', 120, 128, 200, 1024, '+faststart', '-1', '-c:a', '-c:v', '-i', '-map_metadata', '-movflags', '-of', '-show_entries', '-v', '-y', 'CHECKSUM_MISMATCH', 'FIXTURE_CHECKED', 'IMAGE_DECODE_FAILED', 'JPEG', 'MIME_MISMATCH', 'RGB', 'TOO_LARGE', 'aac', 'application/zip', 'derivative.jpg', 'derivative.mp4', 'error', 'ffmpeg', 'ffprobe', 'fixture-byte-scanner', 'format=duration', 'image/', 'image/heic', 'image/jpeg', 'image/png', 'libx264', 'not-configured', 'rb', 'thumbnail.jpg', 'video/', 'video/mp4', 'video/quicktime']

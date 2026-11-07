@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/auth.py
+# hypothesis_version: 6.151.10
+
+[401, 404, 409, '/auth/local/login', '/auth/local/step-up', 'AMBIGUOUS_IDENTITY', 'NOT_FOUND', 'Not found.', 'UNAUTHENTICATED', 'auth_method', 'bearer', 'display_name', 'issuer', 'local_dev', 'organization_id', 'password', 'production_oidc', 'request_id', 'subject', 'token', 'token_type', 'user_id']

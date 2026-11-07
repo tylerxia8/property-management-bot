@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/domain/webhooks.py
+# hypothesis_version: 6.151.10
+
+[401, 404, 409, 422, '+00:00', 'INVALID_SIGNATURE', 'NOT_FOUND', 'VALIDATION_ERROR', 'WEBHOOK_STALE', 'Z', 'accepted', 'actor_id', 'dedup_key', 'delivered', 'duplicate', 'event_type', 'id', 'invoice_id', 'key_version', 'local', 'organization_id', 'payload', 'payload_ciphertext', 'payload_nonce', 'posting_date', 'provider', 'provider_event_id', 'sent_at', 'sent_at is required.', 'status', 'utf-8', 'webhook']

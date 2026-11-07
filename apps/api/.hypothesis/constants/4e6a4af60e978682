@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/schemas.py
+# hypothesis_version: 6.151.10
+
+[120, 200, '^[A-Z]{2}$', 'after', 'forbid', 'timezone']

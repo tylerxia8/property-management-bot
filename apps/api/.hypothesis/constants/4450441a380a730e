@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/settings.py
+# hypothesis_version: 6.151.10
+
+[300, ',', 'app_env', 'development', 'enabled', 'fixture', 'ignore', 'production', 'session_secret', 'test', 'unset', 'var/media']

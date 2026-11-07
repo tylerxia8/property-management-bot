@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/domain/outbox_worker.py
+# hypothesis_version: 6.151.10
+
+[403, 500, 'DISPATCHED', 'FAILED', 'FORBIDDEN', 'InvoiceApproved', 'PENDING', 'WorkerProbe', 'accounting_staff', 'actor_id', 'attempt_count', 'attempts', 'available_at', 'delivered', 'event_id', 'event_type', 'fail', 'id', 'invoice_id', 'last_error', 'now', 'organization_id', 'payload', 'posting_date', 'probe failure', 'processed', 'property_manager', 'redis', 'status', 'user_id']

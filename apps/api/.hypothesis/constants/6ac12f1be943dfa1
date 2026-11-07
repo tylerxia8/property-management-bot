@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/domain/portfolio.py
+# hypothesis_version: 6.151.10
+
+[201, 404, 409, 422, ',', ':', '=', 'DUPLICATE_UNIT_LABEL', 'IDEMPOTENCY_CONFLICT', 'INVALID_CURSOR', 'NOT_FOUND', 'Property not found.', 'Unit not found.', 'VERSION_CONFLICT', 'address_line1', 'address_line2', 'ascii', 'body', 'city', 'constraint_name', 'country_code', 'created', 'created_at', 'created_by', 'current_version', 'cursor_id', 'cursor_ts', 'diag', 'i', 'id', 'idempotency_org_key', 'items', 'label', 'limit', 'name', 'next_cursor', 'organization_id', 'orig', 'postal_code', 'property', 'property.created', 'property.updated', 'property_id', 'region', 'replayed', 'request_id', 't', 'timezone', 'unit', 'unit.created', 'unit.updated', 'unit_count', 'unit_id', 'version']

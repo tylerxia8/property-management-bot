@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/me.py
+# hypothesis_version: 6.151.10
+
+['/me', 'auth_method', 'capabilities', 'display_name', 'grants', 'organization_id', 'production_oidc', 'request_id', 'roles', 'user_id']

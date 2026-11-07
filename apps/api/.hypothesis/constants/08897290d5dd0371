@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/app.py
+# hypothesis_version: 6.151.10
+
+[404, 409, 422, '/v1', '0.1.0', 'APPOINTMENT_CONFLICT', 'Authorization', 'CLOSED_PERIOD', 'CONSTRAINT_VIOLATION', 'Content-Type', 'DUPLICATE_INVOICE', 'ETag', 'GET', 'Grok Bot API', 'HTTP_ERROR', 'INQUIRY_DUPLICATE', 'Idempotency-Key', 'Idempotency-Status', 'If-Match', 'NOT_FOUND', 'OPTIONS', 'PATCH', 'POST', 'Request failed.', 'SLOT_UNAVAILABLE', 'UNBALANCED_JOURNAL', 'VALIDATION_ERROR', 'X-Request-Id', 'append-only', 'code', 'details', 'error', 'errors', 'http', 'immutable', 'invalid', 'loc', 'message', 'msg', 'orig', 'request_id', 'retryable', 'unbalanced journal', 'x-request-id']

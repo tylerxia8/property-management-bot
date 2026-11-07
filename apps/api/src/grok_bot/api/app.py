@@ -11,6 +11,7 @@ from starlette.middleware.cors import CORSMiddleware
 from grok_bot.api.routes.accounting import router as accounting_router
 from grok_bot.api.routes.auth import router as auth_router
 from grok_bot.api.routes.controls import router as controls_router
+from grok_bot.api.routes.demo import router as demo_router
 from grok_bot.api.routes.distributions import router as distributions_router
 from grok_bot.api.routes.health import router as health_router
 from grok_bot.api.routes.maintenance import router as maintenance_router
@@ -40,6 +41,8 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
             expose_headers=["X-Request-Id", "ETag", "Idempotency-Status"],
         )
         app.include_router(auth_router, prefix="/v1")
+        if settings.allows_demo_session:
+            app.include_router(demo_router, prefix="/v1")
     app.include_router(health_router, prefix="/v1")
     app.include_router(me_router, prefix="/v1")
     app.include_router(properties_router, prefix="/v1")

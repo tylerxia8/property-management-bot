@@ -1,0 +1,4 @@
+# file: /workspace/apps/api/src/grok_bot/api/routes/controls.py
+# hypothesis_version: 6.151.10
+
+['/alerts', '/kill-switches', 'delivered_at', 'forbid', 'id', 'requested']
