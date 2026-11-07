@@ -44,6 +44,7 @@ Return **Home** and choose **5. View an owner statement**. The seeded November s
 ## Presenter boundaries and rehearsal checklist
 
 - Rehearse all five screens on the presenting computer before the meeting. Keep Docker running and use the same browser; no internet is needed after images have been built.
+- Optional technical preflight: `python scripts/check_demo.py` verifies the local home page, all five role APIs, the owner statement, and disabled outbound switches. It prints no login tokens and does not create receipts, maintenance tickets, reviews, or appointments.
 - Close or avoid entering real tenant, owner, bank, contact or maintenance information.
 - Live banking, payment execution, SMS/email delivery, external calendars, formal consumer reports, production authentication, and production photo/video processing are not demonstrated.
 - The distribution screen exists, but live submission and demo financial approval are intentionally disabled. Do not present it as an executed payment.

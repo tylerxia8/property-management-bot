@@ -102,6 +102,7 @@ jobs:
           done
           curl -sf http://127.0.0.1:3000/v1/health >/dev/null
           curl -sf http://127.0.0.1:3000/ | grep -q "Fixture sample."
+          python3 scripts/check_demo.py
 
       - name: Rehearse the packaged demo in Chromium
         working-directory: apps/web
