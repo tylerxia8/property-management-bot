@@ -29,7 +29,7 @@ def list_properties_route(
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = None,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> dict:
     require_property_list(principal, "properties.read")
     return list_properties(
@@ -46,7 +46,7 @@ def create_property_route(
     body: PropertyWrite,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> JSONResponse:
     require_capability(principal, "properties.create")
@@ -68,7 +68,7 @@ def get_property_route(
     property_id: UUID,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> JSONResponse:
     require_property(principal, "properties.read", property_id)
     body = get_property(session, principal.organization_id, property_id, request_id_of(request))
@@ -81,7 +81,7 @@ def patch_property_route(
     body: PropertyPatch,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     if_match: str | None = Header(default=None, alias="If-Match"),
 ) -> JSONResponse:
     require_capability(principal, "properties.update")

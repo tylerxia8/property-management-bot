@@ -60,6 +60,16 @@ metadata removal, JPEG orientation, pixel limits, and disabled scanning. API
 integration tests cover inquiry replay/external-ID precedence and HEIC download.
 Full regression and demo-browser checks run in GitHub CI.
 
+Regression hardening also found that request-scoped database cleanup could run
+after an HTTP response had started. A local failure probe returned HTTP 201
+despite a failed commit under the old scope. Database dependencies now use
+FastAPI's function scope so commit/rollback completes before the response is
+sent. Two API regressions check failed-commit status and visibility from a
+separate database connection at response start. Property creation also waits
+for initial loading and uses its confirmed response instead of allowing stale
+list loads to hide the new record. Browser tests assert mutation API results
+and CI retains browser failure evidence.
+
 OSV's package/version query returned no vulnerability IDs for RapidFuzz 3.14.6
 or pillow-heif 1.8.1 on the review date. This is not a security audit of their
 native codec libraries. Versions are pinned in `requirements.lock`.

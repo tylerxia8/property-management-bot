@@ -258,7 +258,7 @@ def _idempotent(session, principal, key, method, path, payload, create):
 
 
 @router.post("/parties", response_model=PartyCreatedOut, status_code=201)
-def post_party(body: PartyBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_party(body: PartyBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "parties.write")
     key = require_idempotency_key(idempotency_key)
     result, _status = run_idempotent_create(
@@ -272,7 +272,7 @@ def post_party(body: PartyBody, request: Request, principal: Principal = Depends
 
 
 @router.post("/bank-accounts", response_model=BankAccountOut, status_code=201)
-def post_bank(body: BankAccountBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_bank(body: BankAccountBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "bank_accounts.write")
     key = require_idempotency_key(idempotency_key)
     result, _status = run_idempotent_create(
@@ -286,7 +286,7 @@ def post_bank(body: BankAccountBody, request: Request, principal: Principal = De
 
 
 @router.post("/leases", response_model=LeaseOut, status_code=201)
-def post_lease(body: LeaseBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_lease(body: LeaseBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "leases.write")
     key = require_idempotency_key(idempotency_key)
     result, _status = run_idempotent_create(
@@ -300,7 +300,7 @@ def post_lease(body: LeaseBody, request: Request, principal: Principal = Depends
 
 
 @router.post("/properties/{property_id}/ownership-periods", response_model=OwnershipOut, status_code=201)
-def post_ownership(property_id: UUID, body: OwnershipBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_ownership(property_id: UUID, body: OwnershipBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "ownership.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -315,7 +315,7 @@ def post_ownership(property_id: UUID, body: OwnershipBody, request: Request, pri
 
 
 @router.post("/properties/{property_id}/agreements", response_model=AgreementOut, status_code=201)
-def post_agreement(property_id: UUID, body: AgreementBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_agreement(property_id: UUID, body: AgreementBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "agreements.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -330,7 +330,7 @@ def post_agreement(property_id: UUID, body: AgreementBody, request: Request, pri
 
 
 @router.post("/receipts", response_model=ReceiptCreatedOut, status_code=201)
-def post_receipt(body: ReceiptBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_receipt(body: ReceiptBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "receipts.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -345,13 +345,13 @@ def post_receipt(body: ReceiptBody, request: Request, principal: Principal = Dep
 
 
 @router.get("/receipts/{receipt_id}", response_model=ReceiptOut)
-def get_receipt_route(receipt_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_receipt_route(receipt_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "receipts.read")
     return get_receipt(session, principal.organization_id, receipt_id)
 
 
 @router.post("/deposit-batches", response_model=DepositOut, status_code=201)
-def post_deposit(body: DepositBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_deposit(body: DepositBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "deposits.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -366,13 +366,13 @@ def post_deposit(body: DepositBody, request: Request, principal: Principal = Dep
 
 
 @router.post("/receipts/{receipt_id}/bank-verification", response_model=ReceiptOut)
-def post_verification(receipt_id: UUID, body: AmountDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_verification(receipt_id: UUID, body: AmountDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "availability.write")
     return verify_receipt(session, principal.organization_id, receipt_id, body.amount_cents)
 
 
 @router.post("/receipts/{receipt_id}/availability", response_model=ReceiptOut)
-def post_availability(receipt_id: UUID, body: AmountDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_availability(receipt_id: UUID, body: AmountDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "availability.write")
     if body.posting_date is None:
         problem(422, "VALIDATION_ERROR", "posting_date is required.")
@@ -380,7 +380,7 @@ def post_availability(receipt_id: UUID, body: AmountDateBody, principal: Princip
 
 
 @router.post("/receipts/{receipt_id}/allocations", response_model=ReceiptCreatedOut, status_code=201)
-def post_allocation(receipt_id: UUID, body: AllocationBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_allocation(receipt_id: UUID, body: AllocationBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "allocations.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -395,7 +395,7 @@ def post_allocation(receipt_id: UUID, body: AllocationBody, request: Request, pr
 
 
 @router.post("/opening-entries/reserve-cash", response_model=OpeningOut, status_code=201)
-def post_opening(body: OpeningReserveBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_opening(body: OpeningReserveBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "opening_entries.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -410,13 +410,13 @@ def post_opening(body: OpeningReserveBody, request: Request, principal: Principa
 
 
 @router.post("/properties/{property_id}/reserve-top-ups", response_model=TopUpOut)
-def post_top_up(property_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_top_up(property_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "reserves.apply")
     return apply_reserve_top_up(session, principal.organization_id, property_id, body.posting_date)
 
 
 @router.post("/rent-charges", response_model=RentChargeOut, status_code=201)
-def post_charge(body: RentChargeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_charge(body: RentChargeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "rent_charges.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -431,7 +431,7 @@ def post_charge(body: RentChargeBody, request: Request, principal: Principal = D
 
 
 @router.post("/invoices", response_model=InvoiceCreatedOut, status_code=201)
-def post_invoice(body: InvoiceBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_invoice(body: InvoiceBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "invoices.submit")
     if body.currency != "USD":
         problem(422, "UNSUPPORTED_CURRENCY", "Only USD cents are supported.")
@@ -448,7 +448,7 @@ def post_invoice(body: InvoiceBody, request: Request, principal: Principal = Dep
 
 
 @router.post("/invoices/{invoice_id}/approve", response_model=InvoiceOut)
-def post_approve(invoice_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_approve(invoice_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "invoices.approve")
     return approve_invoice(session, principal.organization_id, invoice_id, body.posting_date)
 
@@ -463,35 +463,35 @@ def require_fixture_ledger_settlement(request: Request) -> None:
 
 
 @router.post("/properties/{property_id}/distribution-declarations", response_model=ErrorEnvelope, status_code=409)
-def post_declare(property_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_declare(property_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_fixture_ledger_settlement(request)
     require_capability(principal, "distributions.declare")
     return declare_distributions(session, principal.organization_id, property_id, body.posting_date)
 
 
 @router.post("/invoices/{invoice_id}/simulated-settlement", response_model=ErrorEnvelope, status_code=409)
-def post_invoice_settlement(invoice_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_invoice_settlement(invoice_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_fixture_ledger_settlement(request)
     require_capability(principal, "settlements.simulate")
     return settle_invoice(session, principal.organization_id, invoice_id, body.posting_date)
 
 
 @router.post("/fee-settlements/simulated", response_model=ErrorEnvelope, status_code=409)
-def post_fee_settlement(body: FeeSettlementBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_fee_settlement(body: FeeSettlementBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_fixture_ledger_settlement(request)
     require_capability(principal, "settlements.simulate")
     return settle_fee(session, principal.organization_id, body.property_id, body.amount_cents, body.posting_date)
 
 
 @router.post("/distribution-declarations/{declaration_id}/simulated-settlement", response_model=ErrorEnvelope, status_code=409)
-def post_distribution_settlement(declaration_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_distribution_settlement(declaration_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_fixture_ledger_settlement(request)
     require_capability(principal, "settlements.simulate")
     return settle_declaration(session, principal.organization_id, declaration_id, body.posting_date)
 
 
 @router.post("/bank-imports", response_model=ImportOut, status_code=201)
-def post_import(body: BankImportBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def post_import(body: BankImportBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "bank_imports.write")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
@@ -506,19 +506,19 @@ def post_import(body: BankImportBody, request: Request, principal: Principal = D
 
 
 @router.post("/reconciliations", response_model=ReconciliationOut)
-def post_reconciliation(body: ReconciliationBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_reconciliation(body: ReconciliationBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "reconciliations.write")
     return draft_reconciliation(session, principal.organization_id, body.model_dump(mode="json"))
 
 
 @router.post("/reconciliations/{reconciliation_id}/close", response_model=ReconciliationOut)
-def post_close_reconciliation(reconciliation_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_close_reconciliation(reconciliation_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "reconciliations.write")
     return close_reconciliation(session, principal.organization_id, reconciliation_id)
 
 
 @router.post("/period-closes", response_model=PeriodOut)
-def post_period_close(body: PeriodCloseBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_period_close(body: PeriodCloseBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "period_closes.write")
     return close_period(session, principal.organization_id, body.period_start, body.period_end, body.reason)
 
@@ -543,7 +543,7 @@ def get_ledger(
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = None,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ):
     require_property(principal, "ledger.read", property_id)
     return list_property_ledger(session, principal.organization_id, property_id, limit, cursor)
@@ -555,7 +555,7 @@ def post_reversal(
     body: ReasonAmountBody,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     require_capability(principal, "journals.reverse")
@@ -577,7 +577,7 @@ def get_bank_transactions(
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = None,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ):
     require_capability(principal, "receipts.read")
     return list_bank_transactions(session, principal.organization_id, limit, cursor)
@@ -588,7 +588,7 @@ def post_bank_match(
     body: MatchBody,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     require_capability(principal, "bank_matches.write")
@@ -611,7 +611,7 @@ def post_receipt_return(
     body: ReasonAmountBody,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     preview = get_receipt(session, principal.organization_id, receipt_id)
@@ -630,7 +630,7 @@ def post_receipt_return(
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceOut)
-def get_invoice_route(invoice_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_invoice_route(invoice_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     row = get_invoice(session, principal.organization_id, invoice_id)
     require_property(principal, "invoices.read", UUID(row["property_id"]))
     return row
@@ -642,7 +642,7 @@ def post_credit_note(
     body: ReasonAmountBody,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     if_match: str | None = Header(default=None, alias="If-Match"),
 ):
@@ -665,7 +665,7 @@ def post_credit_note(
 
 
 @router.get("/parties", response_model=PartyPageOut)
-def list_parties(principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def list_parties(principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "receipts.read")
     rows = session.execute(
         text("SELECT id, display_name, kind FROM parties WHERE organization_id = :organization_id ORDER BY display_name"),
@@ -675,7 +675,7 @@ def list_parties(principal: Principal = Depends(get_principal), session: Session
 
 
 @router.get("/units/{unit_id}/leases", response_model=LeasePageOut)
-def list_leases(unit_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def list_leases(unit_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "receipts.read")
     rows = session.execute(
         text(
@@ -691,7 +691,7 @@ def list_leases(unit_id: UUID, principal: Principal = Depends(get_principal), se
 
 
 @router.get("/properties/{property_id}/balances", response_model=BalanceOut)
-def get_balances(property_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_balances(property_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "ledger.read")
     return property_balances(session, principal.organization_id, property_id)
 

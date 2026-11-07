@@ -11,7 +11,7 @@ router = APIRouter(responses=ERROR_RESPONSES)
 
 
 @router.get("/operations/queue", response_model=OperationsQueueOut)
-def get_queue(principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_queue(principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     if not (principal.allows("distributions.approve") or principal.allows("receipts.read")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
     organization_id = principal.organization_id

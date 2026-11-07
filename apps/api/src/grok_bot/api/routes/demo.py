@@ -21,7 +21,7 @@ class DemoSessionBody(BaseModel):
 
 
 @router.post("/demo/session", response_model=LoginOut)
-def demo_session(body: DemoSessionBody, request: Request, session: Session = Depends(get_session)):
+def demo_session(body: DemoSessionBody, request: Request, session: Session = Depends(get_session, scope="function")):
     settings = request.app.state.settings
     if not settings.allows_demo_session:
         problem(404, "NOT_FOUND", "Not found.")
