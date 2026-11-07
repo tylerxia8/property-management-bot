@@ -14,6 +14,7 @@ This section is the status of the branch. The historical M0 table below is not.
 | Backup restore | A local `pg_dump` / `pg_restore` into `grok_m0_restore` ran. The log is `docs/evidence/backup-restore.txt`: 1 property, 1 journal entry, 1 owner statement. Encrypted point-in-time recovery was not built. The PRD calls the 15-minute / 4-hour targets proposed. |
 | Celery and Redis | Not installed. They are the dispatcher named in PRD §7.1 and §7.2. The implemented dispatcher is PostgreSQL. No Redis or Celery credential is missing; the packages were not adopted. Redis is not a source of truth. |
 | OpenAPI TypeScript | `apps/api/scripts/generate_api_types.py` writes every component schema, request body, parameter type, and success response type. Success responses without a schema: 0. File download is octet-stream. ADR 0013 |
+| Bank import conflicts | Exact repeats of a bank account/external transaction ID remain safe to import. Changed amounts or posting dates return `409 BANK_TRANSACTION_CONFLICT` and roll back the entire batch, including its idempotency record. Corrections require source review rather than overwriting imported bank evidence. |
 | Local login and step-up | Dev/test only. Production does not mount them. Production MFA is not configured. |
 
 ## Historical M0 record
@@ -70,7 +71,7 @@ These do not wait on a bank, an identity vendor, or an API key.
 | --- | --- | --- |
 | Direct-bank receipt journal legs | §4.2 requires a template and does not specify the accounts | `DIRECT_BANK` returns `DIRECT_BANK_TEMPLATE_UNCONFIGURED` |
 | Expense splits other than ownership weights | §4.4 does not define the other rules | No allocator |
-| Bank CSV column layout | §9.2 requires an import and does not define columns | CSV returns `BANK_IMPORT_FORMAT_UNCONFIGURED`. Canonical JSON import is implemented |
+| Bank-specific CSV column layout | No bank export layout is confirmed | Canonical JSON and the explicit `canonical_csv_v1` interchange format are implemented. Arbitrary `format: csv` remains `BANK_IMPORT_FORMAT_UNCONFIGURED`; map bank exports explicitly. ADR 0017 |
 | Outbound-clearing account | §4.3 assigns no code | No live payment submission. Simulator settlement uses the existing bank and payable accounts and is labeled simulator |
 | Idempotency retention period | Not specified | Rows are kept |
 | Receipt return after allocation, before payout | §4.6 says to reverse allocations and fee accruals according to the agreement, and the agreement does not name the accounts | `CONFIGURATION_REQUIRED`. No reversal is posted. The pre-allocation custody reversal and the post-payout 1040 distribution return stay as specified |

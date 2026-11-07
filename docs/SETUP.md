@@ -45,6 +45,8 @@ Phase 5 adds two more settings:
 - `APPROVAL_TTL_HOURS` defaults to 0. Approval then returns `CONFIGURATION_REQUIRED`. The client cannot send a lifetime. The evidence API process sets `24` only as a bounded fixture, not as a confirmed business rule. ADR 0011.
 - `WEBHOOK_SECRET` empty disables ingress. A secret of at least 16 characters is accepted only in development or test. Production returns `WEBHOOK_NOT_CONFIGURED`.
 
+Manual bank imports accept canonical JSON or the documented [`canonical_csv_v1` format](adr/0017-canonical-bank-csv-import.md). The accounting screen accepts a CSV file with the four exact columns in that contract. Imports record evidence for reconciliation; they do not verify availability or move money. Conflicting amount/date evidence for an existing bank transaction returns 409 and rolls back the batch.
+
 `alembic downgrade` refuses to run unless `ALLOW_DESTRUCTIVE_DOWNGRADE=1`. Downgrade can drop ledger tables. The migration test sets the flag.
 
 The outbox worker is `dispatch_outbox` in `grok_bot.domain.outbox_worker`. It reads PostgreSQL only, retries, and does not deliver. Redis is not used.

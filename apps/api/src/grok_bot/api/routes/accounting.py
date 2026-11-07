@@ -228,7 +228,7 @@ class BankTransactionBody(BaseModel):
 class BankImportBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     format: str | None = None
-    csv_text: str | None = None
+    csv_text: str | None = Field(default=None, max_length=2 * 1024 * 1024)
     transactions: list[BankTransactionBody] = Field(default_factory=list)
 
 

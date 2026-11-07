@@ -1,7 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from threading import Barrier
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -209,6 +212,89 @@ def test_direct_bank_and_csv_are_gated(client, migrator_engine):
     )
     assert conflict.status_code == 409
     assert conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+
+
+@pytest.mark.parametrize("changed", [{"amount_cents": 101}, {"posted_on": "2026-11-02"}])
+def test_bank_reimport_rejects_changed_transaction_and_rolls_back_batch(client, migrator_engine, changed):
+    world = _world(client, migrator_engine)
+    original = {"bank_account_id": world["bank_id"], "external_id": "immutable-bank-row", "amount_cents": 100, "posted_on": "2026-11-01"}
+
+    def upload(key, transactions):
+        return client.post(
+            "/v1/bank-imports",
+            headers={**world["accounting"], "Idempotency-Key": key},
+            json={"transactions": transactions},
+        )
+
+    assert upload("bank-original", [original]).status_code == 201
+    fresh = {**original, "external_id": "must-roll-back"}
+    response = upload("bank-conflicting-batch", [fresh, {**original, **changed}])
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "BANK_TRANSACTION_CONFLICT"
+    with migrator_engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT external_id, amount_cents, posted_on FROM bank_transactions WHERE bank_account_id = :bank_id"),
+            {"bank_id": world["bank_id"]},
+        ).mappings().all()
+    assert len(rows) == 1
+    assert rows[0]["external_id"] == original["external_id"]
+    assert rows[0]["amount_cents"] == 100
+    assert rows[0]["posted_on"] == date(2026, 11, 1)
+    # A rejected batch must not consume its idempotency key or keep earlier rows.
+    retried = upload("bank-conflicting-batch", [fresh, original])
+    assert retried.status_code == 201, retried.text
+    assert retried.json()["created"] == 1
+    assert retried.json()["existing"] == 1
+
+
+def test_conflicting_bank_rows_in_one_new_batch_are_rejected(client, migrator_engine):
+    world = _world(client, migrator_engine)
+    transaction = {"bank_account_id": world["bank_id"], "external_id": "same-batch-row", "amount_cents": 100, "posted_on": "2026-11-01"}
+    response = client.post(
+        "/v1/bank-imports",
+        headers={**world["accounting"], "Idempotency-Key": "bank-internal-conflict"},
+        json={"transactions": [transaction, {**transaction, "amount_cents": 200}]},
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "BANK_TRANSACTION_CONFLICT"
+    with migrator_engine.connect() as conn:
+        assert conn.execute(
+            text("SELECT count(*) FROM bank_transactions WHERE bank_account_id = :bank_id"),
+            {"bank_id": world["bank_id"]},
+        ).scalar_one() == 0
+
+
+@pytest.mark.parametrize("second_amount", [100, 200])
+def test_concurrent_bank_imports_preserve_one_immutable_transaction(app, client, migrator_engine, second_amount):
+    world = _world(client, migrator_engine)
+    barrier = Barrier(2)
+
+    def upload(item):
+        index, amount = item
+        with TestClient(app) as local:
+            barrier.wait(timeout=10)
+            return local.post(
+                "/v1/bank-imports",
+                headers={**world["accounting"], "Idempotency-Key": f"bank-race-{index}"},
+                json={"transactions": [{"bank_account_id": world["bank_id"], "external_id": "race-event", "amount_cents": amount, "posted_on": "2026-11-01"}]},
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(upload, [(0, 100), (1, second_amount)]))
+    assert sorted(response.status_code for response in responses) == ([201, 201] if second_amount == 100 else [201, 409])
+    if second_amount == 100:
+        assert sum(response.json()["created"] for response in responses) == 1
+        assert sum(response.json()["existing"] for response in responses) == 1
+    else:
+        failed = next(response for response in responses if response.status_code == 409)
+        assert failed.json()["error"]["code"] == "BANK_TRANSACTION_CONFLICT"
+    winner = next(index for index, response in enumerate(responses) if response.status_code == 201 and response.json()["created"] == 1)
+    with migrator_engine.connect() as conn:
+        amounts = conn.execute(
+            text("SELECT amount_cents FROM bank_transactions WHERE bank_account_id = :bank_id"),
+            {"bank_id": world["bank_id"]},
+        ).scalars().all()
+    assert amounts == [[100, second_amount][winner]]
 
 
 def test_security_deposit_cannot_fund_owner_or_fee(client, migrator_engine):

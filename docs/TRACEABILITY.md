@@ -48,7 +48,7 @@ PRD references are the contract. Tests below are the M0 checks. “Not this mile
 | FIN-13 | Executed, candidate 52,000 cents | `test_fin_13_deficit_limits_distribution_candidate` |
 | FIN-14 | Executed | `test_security_deposit_cannot_fund_owner_or_fee` |
 | FIN-15 | See the phase 5 map | `test_fin_15_partial_failure_is_not_replayed` |
-| FIN-16 | Canonical reimport and idempotency conflict executed. CSV layout remains gated | `test_direct_bank_and_csv_are_gated` |
+| FIN-16 | Canonical JSON/CSV replay, changed amount/date rejection, batch rollback and concurrent imports covered. Arbitrary bank CSV layouts still require mapping | `test_direct_bank_and_csv_are_gated`, `test_bank_csv_import.py`, `test_bank_reimport_rejects_changed_transaction_and_rolls_back_batch`, `test_concurrent_bank_imports_preserve_one_immutable_transaction` |
 | FIN-17 | Executed. A later ownership period changes only the later allocation | `test_fin_17_later_ownership_does_not_rewrite_posted_allocation` |
 | FIN-18 | See the phase 5 map | `test_fin_18_second_export_keeps_identity_and_does_not_settle` |
 | FIN-19 | Executed | `test_fin_19_invoice_deficit_blocks_settlement_not_accrual` |

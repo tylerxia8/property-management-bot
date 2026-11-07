@@ -25,6 +25,11 @@ export default function AccountingPage() {
   const [balances, setBalances] = useState("");
   const [error, setError] = useState("");
   const [canWrite, setCanWrite] = useState(false);
+  const [canImport, setCanImport] = useState(false);
+  const [bankFile, setBankFile] = useState<File | null>(null);
+  const [importKey, setImportKey] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState("");
 
   useEffect(() => {
     if (!getToken()) {
@@ -42,6 +47,7 @@ export default function AccountingPage() {
     }
     const me = await meResponse.json();
     setCanWrite(me.capabilities.includes("receipts.write"));
+    setCanImport(me.capabilities.includes("bank_imports.write"));
     const propertyResponse = await api("/v1/properties");
     const propertyBody = await propertyResponse.json();
     if (!propertyResponse.ok) {
@@ -108,6 +114,43 @@ export default function AccountingPage() {
       return;
     }
     setReceipt(body);
+  }
+
+  async function importBankCsv(event: FormEvent) {
+    event.preventDefault();
+    if (!bankFile || importing) return;
+    setError("");
+    setImportResult("");
+    if (bankFile.size > 2 * 1024 * 1024) {
+      setError("Choose a CSV file of at most 2 MiB.");
+      return;
+    }
+    setImporting(true);
+    try {
+      let csvText: string;
+      try {
+        csvText = new TextDecoder("utf-8", { fatal: true }).decode(await bankFile.arrayBuffer());
+      } catch {
+        setError("The file could not be read as UTF-8. Export it as UTF-8 CSV and select it again.");
+        return;
+      }
+      const response = await api("/v1/bank-imports", {
+        method: "POST",
+        headers: { "Idempotency-Key": importKey },
+        body: JSON.stringify({ format: "canonical_csv_v1", csv_text: csvText }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        const line = body.error?.details?.line;
+        setError(`${body.error?.message ?? "The bank import failed."}${line ? ` Line ${line}.` : ""}`);
+        return;
+      }
+      setImportResult(`Imported ${body.created} new transactions; ${body.existing} exact repeats. Ready for reconciliation.`);
+    } catch {
+      setError("The import result could not be confirmed. Retry this file to safely check the same request.");
+    } finally {
+      setImporting(false);
+    }
   }
 
   return (
@@ -179,6 +222,30 @@ export default function AccountingPage() {
         <p>
           Receipt {receipt.receipt_number} is {receipt.status}. Available cents: {receipt.available_cents}. Amount cents: {receipt.amount_cents}.
         </p>
+      ) : null}
+      {canImport ? (
+        <section aria-labelledby="bank-import-heading">
+          <h2 id="bank-import-heading">Import bank transactions</h2>
+          <p>
+            Use a UTF-8 CSV with the columns bank_account_id, external_id, amount_cents, posted_on, in that order.
+            Amounts are signed whole cents in USD; dates use YYYY-MM-DD. Use the existing bank account ID.
+            Map your bank export to these columns first. Maximum 2 MiB and 10,000 rows.
+          </p>
+          <p>Importing adds reconciliation evidence. Deposits still require matching, verification, and availability review.</p>
+          <form onSubmit={importBankCsv}>
+            <label>
+              Bank transaction CSV
+              <input type="file" accept=".csv,text/csv" required disabled={importing} onChange={(event) => {
+                setBankFile(event.target.files?.[0] ?? null);
+                setImportKey(crypto.randomUUID());
+                setImportResult("");
+                setError("");
+              }} />
+            </label>
+            <button type="submit" disabled={importing || !bankFile}>{importing ? "Importing…" : "Import transactions"}</button>
+          </form>
+          {importResult ? <p role="status">{importResult}</p> : null}
+        </section>
       ) : null}
     </>
   );
