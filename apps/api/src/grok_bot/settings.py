@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     allow_fixture_ledger_settlement: bool = False
     payment_simulator: str = "unset"
     step_up_max_age_seconds: int = 0
+    approval_ttl_hours: int = 0
+    webhook_secret: str = ""
+    webhook_replay_seconds: int = 300
     media_scanner: str = "unset"
     media_root: str = "var/media"
 
@@ -66,6 +69,10 @@ class Settings(BaseSettings):
     @property
     def payment_simulator_enabled(self) -> bool:
         return self.allows_local_auth and self.payment_simulator == "enabled"
+
+    @property
+    def webhook_ingress_enabled(self) -> bool:
+        return self.allows_local_auth and len(self.webhook_secret) >= 16
 
     @property
     def fixture_media_scanner_allowed(self) -> bool:

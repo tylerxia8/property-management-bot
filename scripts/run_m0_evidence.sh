@@ -27,11 +27,14 @@ sudo -u postgres psql -d postgres -v ON_ERROR_STOP=1 -f "$API/scripts/bootstrap_
   MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" .venv/bin/alembic upgrade head
   APP_ENV=test MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" .venv/bin/python -m grok_bot.seed
   echo "alembic upgrade head and grok_bot.seed exited 0"
+  .venv/bin/pip check
 ) 2>&1 | tee "$EVIDENCE/m0-e2e-seed.txt"
+
+bash "$ROOT/scripts/backup_restore_drill.sh" grok_m0_e2e | tee "$EVIDENCE/backup-restore.txt"
 
 (
   cd "$API"
-  STEP_UP_MAX_AGE_SECONDS=900 .venv/bin/uvicorn grok_bot.main:app --host 127.0.0.1 --port 8000
+  STEP_UP_MAX_AGE_SECONDS=900 APPROVAL_TTL_HOURS=24 .venv/bin/uvicorn grok_bot.main:app --host 127.0.0.1 --port 8000
 ) >"$EVIDENCE/m0-api-server.txt" 2>&1 &
 API_PID=$!
 cleanup() {

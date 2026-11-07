@@ -1,18 +1,23 @@
 # Milestone evidence
 
-Latest command: `scripts/run_m0_evidence.sh` on 2026-11-07, after phase 5 distribution controls and owner statements.
+Latest command: `scripts/run_m0_evidence.sh` on 2026-11-07, after local acceptance hardening.
 
 | Check | Result | Log |
 | --- | --- | --- |
-| pytest against PostgreSQL 16.15 | 86 passed, 1 warning, 20.33s | `m0-pytest.txt` |
-| Alembic upgrade through phase 5 and e2e seed | completed, including `0005_phase5_distributions` | `m0-e2e-seed.txt` |
+| pytest against PostgreSQL 16.15 | 99 passed, 1 warning, 24.78s | `m0-pytest.txt` |
+| Alembic upgrade through `0006_acceptance_hardening` and e2e seed | exited 0 | `m0-e2e-seed.txt` |
+| `pip check` | No broken requirements found | `m0-e2e-seed.txt` |
+| `npm audit` | 0 vulnerabilities | `m0-web.txt` |
+| Local `pg_dump` / `pg_restore` into `grok_m0_restore` | properties 1, journal_entries 1, owner_statements 1 | `backup-restore.txt` |
 | `GET /v1/health` | `local_auth_enabled` true | `m0-health.txt` |
 | Web unit check | 1 passed | `m0-web.txt` |
-| `next build` (Next.js 16.4.5) | compiled, including `/accounting`, `/distributions`, `/maintenance`, `/prequalification`, `/reviews`, and `/statements` | `m0-web.txt` |
-| Playwright Chromium | 5 passed, 3.7s | `m0-web.txt` |
+| `next build` (Next.js 16.4.5) | compiled, including `/distributions` and `/statements` | `m0-web.txt` |
+| Playwright Chromium | 6 passed, 4.2s, including the axe scan | `m0-web.txt` |
 
 The warning is Starlette’s deprecation notice that `httpx` with `starlette.testclient` prefers `httpx2`. It is not a failed test.
 
-`distribution-export.png` is the manager export after approval. It shows export settled false, export submitted false, a duplicate download, and `PROVIDER_SUBMISSION_DISABLED`. `owner-statement.png` is the linked owner’s fixture snapshot. The other owner’s sign-in showed no statement. `prequalification-hold.png` is the earlier prospect hold. `maintenance-intake.png` is the gas follow-up. `recorded-check.png` shows a recorded check still at available cents 0. `manager-property.png` is the manager rename screen.
+`distribution-export.png` shows export settled false, export submitted false, a duplicate download, and `PROVIDER_SUBMISSION_DISABLED`. `owner-statement.png` is the linked owner’s fixture snapshot. The axe scan reported no serious or critical violations on login, properties, distributions, and statements. That scan is not a WCAG certification.
 
-Acceptance assertions are in `docs/TRACEABILITY.md`. The evidence script does not enable the payment simulator, fixture settlement, the fixture media scanner, a calendar provider, or a consumer-report provider. The API process for the browser sets `STEP_UP_MAX_AGE_SECONDS=900`. The seeded screening policy, tour schedule, 25,000-cent cash row, and statement reason are labeled fixture. Pytest does not inherit that step-up setting.
+This run does not enable the payment simulator, fixture settlement, or the fixture media scanner. The API process sets `STEP_UP_MAX_AGE_SECONDS=900` and `APPROVAL_TTL_HOURS=24` for the browser only. Those are dev/test fixtures. Pytest does not inherit them. The seeded 25,000-cent row and statement reason are labeled fixture.
+
+This evidence is local. It is not PRD §16 staging acceptance. See `docs/ACCEPTANCE.md`.

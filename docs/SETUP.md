@@ -42,6 +42,16 @@ Phase 5 adds two more settings:
 
 - `PAYMENT_SIMULATOR=enabled` is accepted only when `APP_ENV` is development or test. It lets an approved distribution item post a simulator settlement journal. The payment event is marked simulator. It is not a bank transfer. Unset, including in the evidence script, `POST /distribution-batches/{id}/submit` returns `409 PROVIDER_SUBMISSION_DISABLED`.
 - `STEP_UP_MAX_AGE_SECONDS` defaults to 0. Approval then returns `409 CONFIGURATION_REQUIRED`. The evidence API process sets it to 900 so the browser can record a dev/test password step-up. That step-up is not production MFA, and the route is not mounted when local auth is off.
+- `APPROVAL_TTL_HOURS` defaults to 0. Approval then returns `CONFIGURATION_REQUIRED`. The client cannot send a lifetime. The evidence API process sets `24` only as a bounded fixture, not as a confirmed business rule. ADR 0011.
+- `WEBHOOK_SECRET` empty disables ingress. A secret of at least 16 characters is accepted only in development or test. Production returns `WEBHOOK_NOT_CONFIGURED`.
+
+`alembic downgrade` refuses to run unless `ALLOW_DESTRUCTIVE_DOWNGRADE=1`. Downgrade can drop ledger tables. The migration test sets the flag.
+
+The outbox worker is `dispatch_outbox` in `grok_bot.domain.outbox_worker`. It reads PostgreSQL only, retries, and does not deliver. Redis is not used.
+
+`apps/api/scripts/generate_api_types.py` writes `apps/web/lib/api-types.generated.ts` from the OpenAPI document. A test fails if the file drifts.
+
+`scripts/backup_restore_drill.sh` dumps a local database and restores it into `grok_m0_restore`. That is a local drill, not encrypted point-in-time recovery.
 
 `grok_app` with only `app.organization_id` set reads no tenant rows. Checkout clears `app.actor_id`. Journal posting still uses `grok_posting`. Alembic still uses `grok_migrator`.
 

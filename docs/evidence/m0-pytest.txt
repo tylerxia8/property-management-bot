@@ -4,19 +4,20 @@ rootdir: /workspace/apps/api
 configfile: pyproject.toml
 testpaths: tests
 plugins: hypothesis-6.151.10, anyio-4.16.0
-collected 86 items
+collected 99 items
 
-tests/test_accounting_core.py ..............                             [ 16%]
-tests/test_api_authz.py ..........                                       [ 27%]
-tests/test_api_concurrency.py ..                                         [ 30%]
-tests/test_audit_and_outbox.py ...                                       [ 33%]
-tests/test_auth_fail_closed.py ....                                      [ 38%]
-tests/test_distributions.py ..........                                   [ 50%]
-tests/test_inbox_and_contacts.py ..                                      [ 52%]
-tests/test_maintenance.py ...............                                [ 69%]
-tests/test_migration_cycle.py .                                          [ 70%]
-tests/test_money_invariants.py ..                                        [ 73%]
-tests/test_prospects.py ...............                                  [ 90%]
+tests/test_acceptance_hardening.py .............                         [ 13%]
+tests/test_accounting_core.py ..............                             [ 27%]
+tests/test_api_authz.py ..........                                       [ 37%]
+tests/test_api_concurrency.py ..                                         [ 39%]
+tests/test_audit_and_outbox.py ...                                       [ 42%]
+tests/test_auth_fail_closed.py ....                                      [ 46%]
+tests/test_distributions.py ..........                                   [ 56%]
+tests/test_inbox_and_contacts.py ..                                      [ 58%]
+tests/test_maintenance.py ...............                                [ 73%]
+tests/test_migration_cycle.py .                                          [ 74%]
+tests/test_money_invariants.py ..                                        [ 76%]
+tests/test_prospects.py ...............                                  [ 91%]
 tests/test_rls_and_fks.py ......                                         [ 97%]
 tests/test_settlement_gate.py ..                                         [100%]
 
@@ -26,4 +27,4 @@ tests/test_settlement_gate.py ..                                         [100%]
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 86 passed, 1 warning in 20.33s ========================
+======================== 99 passed, 1 warning in 24.78s ========================

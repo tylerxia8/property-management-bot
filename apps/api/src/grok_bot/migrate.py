@@ -14,4 +14,5 @@ def upgrade(url: str) -> None:
 
 def downgrade(url: str) -> None:
     os.environ["MIGRATION_DATABASE_URL"] = url
+    os.environ["ALLOW_DESTRUCTIVE_DOWNGRADE"] = "1"
     command.downgrade(Config(str(ROOT / "alembic.ini")), "base")

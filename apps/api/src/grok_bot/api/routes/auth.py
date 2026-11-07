@@ -58,6 +58,8 @@ def local_login(body: LoginBody, request: Request, session: Session = Depends(ge
 
 @router.post("/auth/local/step-up")
 def local_step_up(body: LoginBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)) -> dict:
+    if not request.app.state.settings.allows_local_auth:
+        problem(404, "NOT_FOUND", "Not found.")
     if body.subject != "" and body.password == "":
         problem(401, "UNAUTHENTICATED", "Step-up requires the local password.")
     checked = session.execute(

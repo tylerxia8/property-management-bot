@@ -22,6 +22,7 @@ from grok_bot.domain.maintenance import (
     assign_contractor,
     can_view_ticket,
     complete_work,
+    safe_media_file,
     confirm_appointment,
     create_appointment,
     create_contractor_profile,
@@ -337,10 +338,7 @@ def get_content(media_id: UUID, request: Request, token: str, session: Session =
     row = _media(session, organization_id, media_id)
     if row["status"] != "READY" or not row["derivative_key"]:
         problem(404, "MEDIA_NOT_READY", "This file is not available.")
-    root = Path(request.app.state.settings.media_root).resolve()
-    target = (root / row["derivative_key"]).resolve()
-    if not target.is_relative_to(root) or not target.is_file():
-        problem(404, "NOT_FOUND", "Media not found.")
+    target = safe_media_file(Path(request.app.state.settings.media_root), row["derivative_key"])
     return FileResponse(target)
 
 

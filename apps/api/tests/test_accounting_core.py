@@ -113,7 +113,7 @@ def test_fin_02_worked_example_exact_cents(client, migrator_engine, simulator):
     approved = client.post(
         f"/v1/distribution-batches/{drafted.json()['id']}/approve",
         headers=world["manager"],
-        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Reviewed the worked example", "approval_ttl_hours": 24},
+        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Reviewed the worked example"},
     )
     assert approved.status_code == 200, approved.text
     settled = client.post(
@@ -538,6 +538,7 @@ def _world(client, migrator_engine, *, fee_numerator=0, fee_denominator=1, reser
         "bank_id": bank_id,
         "contractor_id": contractor,
         "lease_id": lease_id,
+        "manager_id": manager_id,
     }
 
 

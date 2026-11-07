@@ -119,4 +119,18 @@ The assertion column is what the executed test checked. Simulator rows are devel
 | Settlement gate | Executed | With the fixture flag on, simulated settlement and distribution declaration still returned `409 APPROVAL_CONTRACT_REQUIRED`. Payable 2040 stayed 4,000 and bank 1030 stayed 0. |
 | Cent invariants | Executed | Twenty random ownership allocations summed to the input cents. Three small available receipts left debit totals equal to credit totals. |
 
-Not run, and not claimed: a live payment provider, a bank file, production OIDC or MFA, an out-of-process webhook worker, and phase 6 rollout. Playwright covers export without settlement and owner-only statement visibility. It does not claim WCAG certification.
+## Local acceptance hardening
+
+| Check | Result | What was asserted |
+| --- | --- | --- |
+| Approval lifetime | Executed | A body with `approval_ttl_hours` 100000 returned 422. A policy of 24 hours, set only in the test fixture, stored an expiry inside 23 to 25 hours. |
+| Export expiry | Executed | A frozen clock 24 hours and 1 minute later made export return `APPROVAL_EXPIRED`. |
+| Production fail closed | Executed | Production with the simulator, step-up age, webhook secret, and fixture flag set still had those capabilities false. Step-up was 404. Webhook was `WEBHOOK_NOT_CONFIGURED`. Submit was 401. |
+| Bypass routes | Executed | All four declaration and simulated-settlement routes returned `APPROVAL_CONTRACT_REQUIRED` with the fixture flag on. Payable 2040 stayed 4,000 and bank 1030 stayed 0. |
+| FIN-04 worker | Executed | 100 identical signed webhooks stored one inbox row. 100 worker passes posted one `INVOICE_APPROVAL` journal. An invalid signature and a stale timestamp stored nothing. `delivered` and `redis` were false. |
+| Worker retry | Executed | A failing probe reached `FAILED` with attempt count 5. Nothing was delivered. |
+| Journeys | Executed | Receipt to export, simulator timeout, settlement, return on 1040, and a statement. Prospect intake through invitation with report ordering disabled. Repair completion posted no payable until one approval; a gas report stayed emergency after a low-risk message and did not add a journal. |
+| Stateful allocation | Executed | Hypothesis examples allocated each available receipt once. The second allocation was 409. Debits equaled credits. |
+| Downgrade guard | Executed | `alembic downgrade -1` without `ALLOW_DESTRUCTIVE_DOWNGRADE=1` exited nonzero and said downgrade was refused. |
+
+Not run, and not claimed: a live payment provider, a bank file, production OIDC or MFA, Celery, Redis, an encrypted point-in-time restore, a load test, a screen-reader audit, and §16 staging acceptance. Playwright covers export without settlement, owner-only statement visibility, and an axe scan of login, properties, distributions, and statements. The axe scan is not a WCAG certification.

@@ -213,7 +213,7 @@ def test_fin_15_partial_failure_is_not_replayed(client, migrator_engine, simulat
     approved = client.post(
         f"/v1/distribution-batches/{drafted.json()['id']}/approve",
         headers=world["manager"],
-        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Partial simulator", "approval_ttl_hours": 24},
+        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Partial simulator"},
     )
     assert approved.status_code == 200, approved.text
     failed = approved.json()["items"][3]["id"]
@@ -405,7 +405,7 @@ def _approved(client, world):
     approved = client.post(
         f"/v1/distribution-batches/{drafted.json()['id']}/approve",
         headers=world["manager"],
-        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Reviewed snapshot", "approval_ttl_hours": 24},
+        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Reviewed snapshot"},
     )
     assert approved.status_code == 200, approved.text
     return approved.json()

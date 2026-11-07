@@ -12,6 +12,8 @@ from grok_bot.api.routes.auth import router as auth_router
 from grok_bot.api.routes.distributions import router as distributions_router
 from grok_bot.api.routes.health import router as health_router
 from grok_bot.api.routes.maintenance import router as maintenance_router
+from grok_bot.api.routes.operations import router as operations_router
+from grok_bot.api.routes.webhooks import router as webhooks_router
 from grok_bot.api.routes.me import router as me_router
 from grok_bot.api.routes.properties import router as properties_router
 from grok_bot.api.routes.prospects import router as prospects_router
@@ -44,6 +46,8 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(maintenance_router, prefix="/v1")
     app.include_router(prospects_router, prefix="/v1")
     app.include_router(distributions_router, prefix="/v1")
+    app.include_router(operations_router, prefix="/v1")
+    app.include_router(webhooks_router, prefix="/v1")
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):

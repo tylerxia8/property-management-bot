@@ -16,6 +16,22 @@ from grok_bot.domain.records import write_audit, write_outbox
 from grok_bot.errors import problem
 from grok_bot.redaction import redact
 
+def safe_media_file(root: Path, key: str, *, allow_missing: bool = False) -> Path:
+    parts = Path(key).parts
+    if not key or Path(key).is_absolute() or any(part in {"", ".", ".."} for part in parts):
+        problem(404, "NOT_FOUND", "Media not found.")
+    current = root
+    if current.is_symlink():
+        problem(404, "NOT_FOUND", "Media not found.")
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            problem(404, "NOT_FOUND", "Media not found.")
+    if not allow_missing and not current.is_file():
+        problem(404, "NOT_FOUND", "Media not found.")
+    return current
+
+
 SAFETY_MESSAGE = "If there is immediate danger, leave the area if safe and call 911 or the appropriate emergency service."
 GAS_GUIDANCE = "Do not operate electrical switches."
 FIELD_ORDER = (
@@ -373,7 +389,7 @@ def store_and_scan(session, settings, organization_id, media_id, payload: bytes 
     ).mappings().first()
     if row is None:
         problem(404, "NOT_FOUND", "Media not found.")
-    path = Path(settings.media_root) / row["storage_key"]
+    path = safe_media_file(Path(settings.media_root), row["storage_key"], allow_missing=True)
     if payload is None:
         if not path.exists():
             problem(409, "UPLOAD_INCOMPLETE", "The quarantined upload has not arrived.")
@@ -1287,7 +1303,7 @@ def save_quarantine(session, settings, organization_id, media_id, payload: bytes
     ).mappings().first()
     if row is None or row["status"] != "QUARANTINED":
         problem(404, "NOT_FOUND", "Media not found.")
-    path = Path(settings.media_root) / row["storage_key"]
+    path = safe_media_file(Path(settings.media_root), row["storage_key"], allow_missing=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)
     session.execute(

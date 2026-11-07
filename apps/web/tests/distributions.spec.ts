@@ -30,8 +30,8 @@ test("manager export does not settle and owner sees only their statement", async
   await page.getByLabel("Step-up password").fill("local-manager-password");
   await page.getByRole("button", { name: "Record step-up" }).click();
   await expect(page.getByText("Dev/test step-up recorded. This is not production MFA.")).toBeVisible();
+  await expect(page.getByText("This form cannot set it.")).toBeVisible();
   await page.getByLabel("Approval reason").fill("Browser review of the fixture snapshot.");
-  await page.getByLabel("Approval lifetime hours").fill("24");
   await page.getByRole("button", { name: "Approve snapshot" }).click();
   await expect(page.getByRole("heading", { name: "Batch APPROVED" })).toBeVisible();
   await page.getByRole("button", { name: "Export instructions" }).click();

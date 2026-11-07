@@ -167,14 +167,15 @@ def validate_batch(session, organization_id, batch_id) -> dict:
     return get_batch(session, organization_id, batch_id)
 
 
-def approve_batch(session, organization_id, batch_id, actor_id, snapshot_hash: str, reason: str, ttl_hours: int, settings, now) -> dict:
+def approve_batch(session, organization_id, batch_id, actor_id, snapshot_hash: str, reason: str, settings, now) -> dict:
+    if settings.approval_ttl_hours <= 0:
+        problem(409, "CONFIGURATION_REQUIRED", "Approval lifetime is not configured.")
     if settings.step_up_max_age_seconds <= 0:
         problem(409, "CONFIGURATION_REQUIRED", "Step-up freshness is not configured.")
     if not reason.strip():
         problem(422, "VALIDATION_ERROR", "Approval requires a reason.")
-    if ttl_hours <= 0:
-        problem(422, "VALIDATION_ERROR", "Approval lifetime must be explicit and positive.")
     batch = _lock_batch(session, organization_id, batch_id)
+    _assert_snapshot_inputs(session, organization_id, batch_id)
     current = _hash(session, organization_id, batch_id)
     if current != snapshot_hash or current != batch["snapshot_hash"]:
         problem(409, "APPROVAL_INVALID", "The snapshot does not match the current batch.")
@@ -189,7 +190,7 @@ def approve_batch(session, organization_id, batch_id, actor_id, snapshot_hash: s
     ).scalar()
     if step_up is None or (now - step_up).total_seconds() > settings.step_up_max_age_seconds:
         problem(409, "STEP_UP_REQUIRED", "A fresh dev/test step-up is required. Production MFA is not configured.")
-    expires = now + timedelta(hours=ttl_hours)
+    expires = now + timedelta(hours=settings.approval_ttl_hours)
     approval_id = uuid4()
     session.execute(
         text(
@@ -220,7 +221,13 @@ def approve_batch(session, organization_id, batch_id, actor_id, snapshot_hash: s
             WHERE organization_id = :organization_id AND id = :id
             """
         ),
-        {"now": now, "expires_at": expires, "ttl_hours": ttl_hours, "organization_id": organization_id, "id": batch_id},
+            {
+                "now": now,
+                "expires_at": expires,
+                "ttl_hours": settings.approval_ttl_hours,
+                "organization_id": organization_id,
+                "id": batch_id,
+            },
     )
     session.execute(
         text("UPDATE distribution_items SET status = 'APPROVED' WHERE organization_id = :organization_id AND batch_id = :batch_id AND status = 'RESERVED'"),
@@ -243,8 +250,8 @@ def approve_batch(session, organization_id, batch_id, actor_id, snapshot_hash: s
     return body
 
 
-def export_batch(session, organization_id, batch_id, actor_id) -> dict:
-    batch = _require_current_approval(session, organization_id, batch_id)
+def export_batch(session, organization_id, batch_id, actor_id, now) -> dict:
+    batch = _require_current_approval(session, organization_id, batch_id, now)
     prior = session.execute(
         text("SELECT count(*) FROM distribution_exports WHERE organization_id = :organization_id AND batch_id = :batch_id"),
         {"organization_id": organization_id, "batch_id": batch_id},
@@ -311,13 +318,7 @@ def export_batch(session, organization_id, batch_id, actor_id) -> dict:
 def submit_batch(session, organization_id, batch_id, scripts: dict, settings, posting_date, now) -> dict:
     if not settings.payment_simulator_enabled:
         problem(409, "PROVIDER_SUBMISSION_DISABLED", "No payment provider is configured. Nothing was submitted to a bank.")
-    batch = _require_current_approval(session, organization_id, batch_id)
-    if batch["expires_at"] is not None and batch["expires_at"] < now:
-        session.execute(
-            text("UPDATE distribution_batches SET status = 'EXPIRED' WHERE organization_id = :organization_id AND id = :id"),
-            {"organization_id": organization_id, "id": batch_id},
-        )
-        problem(409, "APPROVAL_EXPIRED", "The approval has expired.")
+    batch = _require_current_approval(session, organization_id, batch_id, now)
     for item in _items(session, organization_id, batch_id):
         if item["status"] == "SETTLED":
             continue
@@ -686,10 +687,51 @@ def _hash(session, organization_id, batch_id) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def _require_current_approval(session, organization_id, batch_id):
+def _assert_snapshot_inputs(session, organization_id, batch_id) -> None:
+    for item in _items(session, organization_id, batch_id):
+        if item["status"] == "CANCELED":
+            continue
+        destination = session.execute(
+            text(
+                """
+                SELECT party_id, version FROM payee_destinations
+                WHERE organization_id = :organization_id AND id = :id
+                """
+            ),
+            {"organization_id": organization_id, "id": item["destination_id"]},
+        ).mappings().first()
+        if (
+            destination is None
+            or destination["party_id"] != item["recipient_party_id"]
+            or destination["version"] != item["destination_version"]
+        ):
+            problem(409, "APPROVAL_INVALID", "The payee destination does not match the approved recipient.")
+        reserved = session.execute(
+            text(
+                """
+                SELECT coalesce(sum(amount_cents), 0)
+                FROM fund_reservations
+                WHERE organization_id = :organization_id AND item_id = :item_id
+                  AND status IN ('ACTIVE', 'CONSUMED')
+                """
+            ),
+            {"organization_id": organization_id, "item_id": item["id"]},
+        ).scalar()
+        if int(reserved) != item["amount_cents"]:
+            problem(409, "APPROVAL_INVALID", "Reserved funds no longer match the approved amount.")
+
+
+def _require_current_approval(session, organization_id, batch_id, now=None):
     batch = _lock_batch(session, organization_id, batch_id)
+    if now is not None and batch["expires_at"] is not None and batch["expires_at"] <= now:
+        session.execute(
+            text("UPDATE distribution_batches SET status = 'EXPIRED' WHERE organization_id = :organization_id AND id = :id"),
+            {"organization_id": organization_id, "id": batch_id},
+        )
+        problem(409, "APPROVAL_EXPIRED", "The approval has expired.")
     if batch["status"] not in {"APPROVED", "PARTIALLY_SETTLED", "UNKNOWN", "SETTLED"}:
         problem(409, "APPROVAL_INVALID", "The batch is not approved.")
+    _assert_snapshot_inputs(session, organization_id, batch_id)
     for item in _items(session, organization_id, batch_id):
         if _current_destination_version(session, organization_id, item) != item["destination_version"]:
             problem(409, "APPROVAL_INVALID", "The payee destination version changed after approval.")

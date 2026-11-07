@@ -37,7 +37,6 @@ export default function DistributionsPage() {
   const [stepSubject, setStepSubject] = useState("");
   const [stepPassword, setStepPassword] = useState("");
   const [reason, setReason] = useState("");
-  const [ttlHours, setTtlHours] = useState("");
   const [exported, setExported] = useState<ExportBody | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -156,7 +155,6 @@ export default function DistributionsPage() {
       body: JSON.stringify({
         snapshot_hash: batch.snapshot_hash,
         reason,
-        approval_ttl_hours: Number(ttlHours),
       }),
     });
     const body = await response.json();
@@ -281,15 +279,7 @@ export default function DistributionsPage() {
               Approval reason
               <textarea value={reason} onChange={(event) => setReason(event.target.value)} required />
             </label>
-            <label>
-              Approval lifetime hours
-              <input
-                inputMode="numeric"
-                value={ttlHours}
-                onChange={(event) => setTtlHours(event.target.value)}
-                required
-              />
-            </label>
+            <p>Approval lifetime comes from the server policy. This form cannot set it.</p>
             <button type="submit">Approve snapshot</button>
           </form>
           <p>

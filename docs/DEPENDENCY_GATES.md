@@ -35,7 +35,7 @@ These are not PRD contradictions. M0 does not enable the capability.
 | Bank CSV column layout | §9.2 requires an import and does not define columns | CSV returns `BANK_IMPORT_FORMAT_UNCONFIGURED`. Canonical JSON import is implemented |
 | Outbound-clearing account | §4.3 mentions it and assigns no code | No live payment submission. Simulator settlement uses the existing bank and payable accounts and is labeled simulator. |
 | Idempotency retention period | Not specified | Rows are kept; nothing expires them |
-| Step-up freshness window | §3 says “recent” without a duration | No default age. `step_up_max_age_seconds` of 0 refuses approval. Callers pass `approval_ttl_hours`. The local step-up route exists only with dev/test login. |
+| Step-up freshness window | §3 says “recent” without a duration | No default age. `step_up_max_age_seconds` of 0 refuses approval. `APPROVAL_TTL_HOURS` of 0 refuses approval. The client cannot send a lifetime. The local step-up route exists only with dev/test login. |
 | Statutory North Carolina timing, notice, or deposit administration | §12 says the legal summary is not a legal opinion | No statutory encoder |
 | Unit-command policy if it should differ from properties | Not specified. ADR 0004 records a reversible analogy so the API exists | Analogy only; not described as a confirmed policy |
 | Production malware scanning and KMS | Providers unselected | Local JPEG/PNG/MP4 checks run only when `APP_ENV` is development or test and `MEDIA_SCANNER=fixture`. The scanner name is `fixture-byte-scanner`. Production cannot mark an upload ready with it. HEIC stays unready. |

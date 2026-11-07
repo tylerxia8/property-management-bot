@@ -23,6 +23,7 @@ The task’s coverage list (accounting, prequalification, maintenance) names are
 | 4 | Phase 4 prospects and tours | Intake, policy evaluator, human review, scheduling | Implemented on this branch. See `docs/PHASE4_SCOPE.md`. No consumer report and no live calendar. |
 | 5 | Phase 5 statements and distributions | Close, statements, approval snapshots, instruction export, simulator settlement evidence | Implemented on this branch. See `docs/PHASE5_SCOPE.md` and ADR 0010. Provider submission stays disabled. |
 | 6 | Phase 6 pilot and optional live payments | Provider sandbox or live adapter | Not started. Blocked by the §18 gates and by the instruction to keep money simulated until the provider and accounting rules are confirmed. |
+| 7 | Local acceptance hardening | Security fixes, local worker, journeys, backup drill, accessibility scan | Implemented locally. This is not §16 staging acceptance. See `docs/ACCEPTANCE.md`. |
 
 M0 does not pull phase 2–6 work forward.
 

@@ -44,7 +44,6 @@ class ApproveBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     snapshot_hash: str
     reason: str
-    approval_ttl_hours: int = Field(gt=0)
 
 
 class SubmitBody(BaseModel):
@@ -110,16 +109,15 @@ def post_approve(batch_id: UUID, body: ApproveBody, request: Request, principal:
         principal.user_id,
         body.snapshot_hash,
         body.reason,
-        body.approval_ttl_hours,
         request.app.state.settings,
         request.app.state.clock.now(),
     )
 
 
 @router.post("/distribution-batches/{batch_id}/export")
-def post_export(batch_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_export(batch_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "distributions.export")
-    return export_batch(session, principal.organization_id, batch_id, principal.user_id)
+    return export_batch(session, principal.organization_id, batch_id, principal.user_id, request.app.state.clock.now())
 
 
 @router.post("/distribution-batches/{batch_id}/submit")

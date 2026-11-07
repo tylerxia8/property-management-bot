@@ -50,11 +50,14 @@ def simulator(app):
     settings = app.state.settings
     previous_simulator = settings.payment_simulator
     previous_age = settings.step_up_max_age_seconds
+    previous_ttl = settings.approval_ttl_hours
     settings.payment_simulator = "enabled"
     settings.step_up_max_age_seconds = 900
+    settings.approval_ttl_hours = 24
     yield
     settings.payment_simulator = previous_simulator
     settings.step_up_max_age_seconds = previous_age
+    settings.approval_ttl_hours = previous_ttl
 
 
 @pytest.fixture

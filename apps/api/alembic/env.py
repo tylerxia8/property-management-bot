@@ -1,4 +1,5 @@
 import os
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -24,7 +25,19 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _refuse_unmarked_downgrade() -> None:
+    # ``head`` is resolved to a revision id before this runs. ``base`` is None.
+    destination = context.get_revision_argument()
+    downgrading = "downgrade" in " ".join(sys.argv) or destination is None
+    if downgrading and os.environ.get("ALLOW_DESTRUCTIVE_DOWNGRADE") != "1":
+        raise RuntimeError(
+            "Downgrade refused. Set ALLOW_DESTRUCTIVE_DOWNGRADE=1. "
+            "Downgrade can drop ledger, distribution, and audit tables."
+        )
+
+
 def run_migrations_online() -> None:
+    _refuse_unmarked_downgrade()
     connectable = create_engine(_url(), poolclass=pool.NullPool)
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
