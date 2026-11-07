@@ -81,9 +81,9 @@ jobs:
           docker compose --env-file .env.demo-ci -f compose.demo.yaml -p grok-property-sample-ci config >/tmp/demo-config.yml
           python3 - << 'PY'
           text = open("/tmp/demo-config.yml", encoding="utf-8").read()
-          if "127.0.0.1:3000:3000" not in text:
+          if "host_ip: 127.0.0.1" not in text and "127.0.0.1:3000:3000" not in text:
               raise SystemExit("web port is not bound to loopback")
-          if "5432:5432" in text:
+          if "5432:5432" in text or 'published: "5432"' in text or "published: '5432'" in text:
               raise SystemExit("postgres must not be published")
           PY
           docker compose --env-file .env.demo-ci -f compose.demo.yaml -p grok-property-sample-ci up --build -d
