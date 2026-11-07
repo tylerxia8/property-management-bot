@@ -1,8 +1,9 @@
 """Generate TypeScript from the FastAPI OpenAPI document.
 
-This emits an interface for every component schema and a path map for every
-operation. A success response with no schema in the document becomes
-`unknown`. The generator does not invent response fields the routes omitted.
+This emits an interface for every component schema and, for every operation,
+the request body, parameter types, and success response types. A success
+response with no schema in the document becomes `unknown`. The generator does
+not invent response fields the routes omitted.
 """
 
 import json
@@ -60,12 +61,23 @@ def _response_counts(schema: dict) -> tuple[int, int]:
             for code, response in operation.get("responses", {}).items():
                 if not str(code).startswith("2"):
                     continue
-                body = response.get("content", {}).get("application/json", {}).get("schema")
-                if body:
+                if _success_schema(response):
                     typed += 1
                 else:
                     untyped += 1
     return typed, untyped
+
+
+def _success_schema(response: dict) -> dict | None:
+    content = response.get("content", {})
+    json_body = content.get("application/json", {}).get("schema")
+    if json_body:
+        return json_body
+    for spec in content.values():
+        schema = spec.get("schema")
+        if schema:
+            return schema
+    return None
 
 
 def _interface(name: str, body: dict) -> str:
@@ -83,13 +95,22 @@ def _interface(name: str, body: dict) -> str:
 
 def _operation(operation: dict) -> list[str]:
     lines = []
+    parameters = operation.get("parameters") or []
+    if parameters:
+        lines.append("      parameters: {")
+        for param in parameters:
+            optional = "" if param.get("required") else "?"
+            lines.append(f"        {_field(param['name'])}{optional}: {_type(param.get('schema', {}))};")
+        lines.append("      };")
     request = operation.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema")
     if request:
         lines.append(f"      requestBody: {_type(request)};")
     responses = operation.get("responses", {})
     lines.append("      responses: {")
     for code in sorted(responses):
-        body = responses[code].get("content", {}).get("application/json", {}).get("schema")
+        body = _success_schema(responses[code]) if str(code).startswith("2") else responses[code].get("content", {}).get("application/json", {}).get("schema")
+        if body is None and not str(code).startswith("2"):
+            body = _success_schema(responses[code])
         lines.append(f"        {json.dumps(str(code))}: {_type(body) if body else 'unknown'};")
     lines.append("      };")
     return lines

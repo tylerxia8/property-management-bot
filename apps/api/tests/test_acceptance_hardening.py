@@ -258,8 +258,10 @@ def test_openapi_types_match_the_running_app(app):
     assert "export interface ApproveBody {" in generated
     assert "snapshot_hash: string;" in generated
     assert "approval_ttl_hours" not in generated
-    assert "export interface HTTPValidationError {" in generated
-    assert "Success responses without a schema, typed as unknown:" in generated
+    assert "export interface ErrorEnvelope {" in generated
+    assert "export interface HTTPValidationError {" not in generated
+    assert "Success responses without a schema, typed as unknown: 0." in generated
+    assert "parameters:" in generated
     assert TARGET.read_text(encoding="utf-8") == generated
 
 

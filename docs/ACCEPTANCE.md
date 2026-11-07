@@ -19,7 +19,7 @@ Date: 2026-11-07. This is the local implementation record. It is not PRD §16 st
 | Property-based cent conservation and stateful double allocation | Implemented | `tests/test_money_invariants.py`, `test_stateful_receipts_cannot_be_allocated_twice` |
 | Signed webhook invalid signature, stale timestamp, and replay | Implemented for the local contract | `test_fin_04_worker_replays_one_payable`. Production ingress stays `WEBHOOK_NOT_CONFIGURED` |
 | Transactional outbox worker, delivery disabled, retry then dead letter | Implemented | `test_worker_retries_then_dead_letters_without_delivery`. The dispatcher is PostgreSQL. Celery and Redis are not installed; that is a stack deviation, not a missing credential |
-| OpenAPI schema-to-TypeScript | Partial | New contract routes declare success models. The generator emits every component schema. Success responses that a route still does not declare stay `unknown`. `openapi-typescript` 7.13.0 was not added because it requires TypeScript 5 and this app pins TypeScript 7.0.2 |
+| OpenAPI schema-to-TypeScript | Implemented for mounted responses | 115 mounted operations. 111 success responses have schemas. 0 success responses are undeclared. Five commands have no 2xx because they always return the error envelope. The generator emits component schemas, request bodies, parameter types, and success types. File download is `application/octet-stream`. `openapi-typescript` was not added because 7.13.0 requires TypeScript 5 and this app pins TypeScript 7.0.2 |
 | Media symlink escape | Implemented | `safe_media_file`, `test_media_symlink_is_not_opened`. Scanner still fails closed unless the dev/test fixture flag is set |
 | Migration roundtrip and destructive downgrade refusal | Implemented | `test_migration_up_down_up`, `test_downgrade_without_flag_is_refused` |
 | Local backup restore | Executed as a drill | `scripts/backup_restore_drill.sh`, `docs/evidence/backup-restore.txt`. Not an encrypted quarterly PITR |
@@ -27,8 +27,9 @@ Date: 2026-11-07. This is the local implementation record. It is not PRD §16 st
 | Operations queue | Partial | `GET /v1/operations/queue` returns dead letters, unknown payments, approved batches, and unassigned emergencies. `alerts_sent` is false. Nothing is paged |
 | Provider and business gates (OIDC, MFA, KMS, live bank, object storage, legal retention, fee and screening rules) | Gated | Listed one by one in `docs/DEPENDENCY_GATES.md` under “Provider and business gates” |
 | Celery and Redis | Not adopted | Local packages, not credentials. The PostgreSQL worker is the current dispatcher and does not deliver |
-| Confirmed routes and controls still absent | Not implemented | The list is in `docs/DEPENDENCY_GATES.md` under “Confirmed behavior still missing without a vendor account.” It includes the eight §9.2 routes that are not mounted, resource-scoped login, alert routing, kill switches, the load test, and the screen-reader pass |
-| Load test at 10× planned volume | Not run | No staging environment in this milestone |
+| Confirmed routes and controls still absent | See the gap table | Mounted contract routes, scoped grants, alerts, and kill switches are in place. The remaining credential-independent gaps are the screen-reader pass, cookie CSRF, Celery/Redis as a stack deviation, and staging acceptance. `docs/DEPENDENCY_GATES.md` |
+| Local load at the proposed §14 size | Measured locally | `test_proposed_portfolio_read_load` on the isolated test database. Not staging, and not the 10× rollout check |
+| Load test at 10× planned volume | Not run | §14 says to validate at 10× before broader rollout. No staging environment |
 | Manual screen-reader pass | Not run | Not claimed |
 
 The latest full evidence log is `docs/evidence/README.md`. The type generator was checked again after that log; that later check is named in the same file. A passing local suite does not accept the MVP.

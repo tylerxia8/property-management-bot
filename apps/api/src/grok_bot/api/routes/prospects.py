@@ -33,8 +33,32 @@ from grok_bot.domain.tours import (
     reschedule,
 )
 from grok_bot.errors import problem
+from grok_bot.api.success import (
+    ERROR_RESPONSES,
+    AccessOut,
+    AppointmentOut,
+    DispositionOut,
+    ErrorEnvelope,
+    EvaluationOut,
+    InquiryOut,
+    IntakeMessageOut,
+    IntakeUpdatedOut,
+    InvitationOut,
+    ListingCreatedOut,
+    ListingPageOut,
+    PolicyOut,
+    ProspectOut,
+    RescheduleOut,
+    ResourceOut,
+    ReviewPageOut,
+    ReviewResolvedOut,
+    ScheduleOut,
+    SlotPageOut,
+    TourCancelOut,
+    TourCompleteOut,
+)
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
 class ListingBody(BaseModel):
@@ -161,7 +185,7 @@ def _require_own(principal: Principal, session: Session, prospect_id: UUID) -> N
         problem(404, "NOT_FOUND", "Prospect not found.")
 
 
-@router.get("/listings")
+@router.get("/listings", response_model=ListingPageOut)
 def get_listings(principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     if not (principal.allows("prospects.own") or principal.allows("screening.publish") or principal.allows("prospects.review")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
@@ -191,7 +215,7 @@ def get_listings(principal: Principal = Depends(get_principal), session: Session
     }
 
 
-@router.post("/listings")
+@router.post("/listings", response_model=ListingCreatedOut, status_code=201)
 def post_listing(body: ListingBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "screening.publish")
     from uuid import uuid4
@@ -215,7 +239,7 @@ def post_listing(body: ListingBody, request: Request, principal: Principal = Dep
     return JSONResponse(status_code=201, content={"id": str(listing_id), "request_id": request_id_of(request)})
 
 
-@router.post("/inquiries")
+@router.post("/inquiries", response_model=InquiryOut, responses={201: {"model": InquiryOut}})
 def post_inquiry(body: InquiryBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "prospects.review")
     result = receive_inquiry(session, principal.organization_id, body.model_dump())
@@ -228,7 +252,7 @@ class ProspectStart(BaseModel):
     listing_id: UUID | None = None
 
 
-@router.post("/prospects")
+@router.post("/prospects", response_model=ProspectOut, status_code=201)
 def post_prospect(body: ProspectStart, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "prospects.own")
     result = ensure_prospect(session, principal.organization_id, principal.user_id, body.listing_id)
@@ -237,7 +261,7 @@ def post_prospect(body: ProspectStart, request: Request, principal: Principal = 
     return JSONResponse(status_code=201, content=result)
 
 
-@router.patch("/prospects/{prospect_id}/intake")
+@router.patch("/prospects/{prospect_id}/intake", response_model=IntakeUpdatedOut)
 def patch_intake(prospect_id: UUID, body: IntakeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     _require_own(principal, session, prospect_id)
     result = update_intake(session, principal.organization_id, prospect_id, body.model_dump(exclude_none=True), principal.user_id)
@@ -245,7 +269,7 @@ def patch_intake(prospect_id: UUID, body: IntakeBody, request: Request, principa
     return result
 
 
-@router.post("/prospects/{prospect_id}/messages")
+@router.post("/prospects/{prospect_id}/messages", response_model=IntakeMessageOut)
 def post_messages(prospect_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     _require_own(principal, session, prospect_id)
     result = update_intake(session, principal.organization_id, prospect_id, {}, principal.user_id)
@@ -254,7 +278,7 @@ def post_messages(prospect_id: UUID, request: Request, principal: Principal = De
     return result
 
 
-@router.post("/properties/{property_id}/screening-policies")
+@router.post("/properties/{property_id}/screening-policies", response_model=PolicyOut, status_code=201)
 def post_policy(property_id: UUID, body: PolicyBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "screening.publish")
     payload = body.model_dump()
@@ -262,7 +286,7 @@ def post_policy(property_id: UUID, body: PolicyBody, principal: Principal = Depe
     return JSONResponse(status_code=201, content=publish_policy(session, principal.organization_id, property_id, payload, principal.user_id))
 
 
-@router.post("/prospects/{prospect_id}/evaluate")
+@router.post("/prospects/{prospect_id}/evaluate", response_model=EvaluationOut)
 def post_evaluate(prospect_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     _require_own(principal, session, prospect_id)
     result = evaluate(
@@ -277,38 +301,38 @@ def post_evaluate(prospect_id: UUID, request: Request, principal: Principal = De
     return result
 
 
-@router.get("/human-reviews")
+@router.get("/human-reviews", response_model=ReviewPageOut)
 def get_reviews(principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "prospects.review")
     return list_reviews(session, principal.organization_id)
 
 
-@router.post("/human-reviews/{review_id}/resolve")
+@router.post("/human-reviews/{review_id}/resolve", response_model=ReviewResolvedOut)
 def post_resolve(review_id: UUID, body: ReviewBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "prospects.review")
     return resolve_review(session, principal.organization_id, review_id, body.model_dump(), principal.user_id)
 
 
-@router.post("/properties/{property_id}/tour-schedules")
+@router.post("/properties/{property_id}/tour-schedules", response_model=ScheduleOut, status_code=201)
 def post_schedule(property_id: UUID, body: ScheduleBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "tours.manage")
     return JSONResponse(status_code=201, content=publish_schedule(session, principal.organization_id, property_id, body.model_dump()))
 
 
-@router.post("/properties/{property_id}/scheduling-resources")
+@router.post("/properties/{property_id}/scheduling-resources", response_model=ResourceOut, status_code=201)
 def post_resource(property_id: UUID, body: ResourceBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "tours.manage")
     return JSONResponse(status_code=201, content=add_resource(session, principal.organization_id, property_id, body.display_name))
 
 
-@router.get("/tour-slots")
+@router.get("/tour-slots", response_model=SlotPageOut)
 def get_slots(request: Request, property_id: UUID = Query(), principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     if not (principal.allows("tours.request") or principal.allows("tours.manage")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
     return list_slots(session, principal.organization_id, property_id, request.app.state.clock)
 
 
-@router.post("/appointments/holds")
+@router.post("/appointments/holds", response_model=AppointmentOut, status_code=201)
 def post_hold(body: HoldBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     if principal.allows("tours.request"):
         _require_own(principal, session, body.prospect_id)
@@ -318,50 +342,50 @@ def post_hold(body: HoldBody, request: Request, principal: Principal = Depends(g
     return JSONResponse(status_code=201, content=result)
 
 
-@router.post("/appointments/{appointment_id}/confirm")
+@router.post("/appointments/{appointment_id}/confirm", response_model=AppointmentOut)
 def post_confirm(appointment_id: UUID, body: ConfirmBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "tours.manage")
     return confirm_tour(session, principal.organization_id, appointment_id, principal.user_id, body.manager_local)
 
 
-@router.post("/appointments/{appointment_id}/reschedule")
+@router.post("/appointments/{appointment_id}/reschedule", response_model=RescheduleOut)
 def post_reschedule(appointment_id: UUID, body: HoldBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "tours.manage")
     return reschedule(session, principal.organization_id, appointment_id, body.model_dump(), request.app.state.clock)
 
 
-@router.post("/appointments/{appointment_id}/cancel")
+@router.post("/appointments/{appointment_id}/cancel", response_model=TourCancelOut)
 def post_cancel(appointment_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     if not (principal.allows("tours.manage") or principal.allows("tours.request")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
     return cancel_tour(session, principal.organization_id, appointment_id)
 
 
-@router.post("/appointments/{appointment_id}/complete")
+@router.post("/appointments/{appointment_id}/complete", response_model=TourCompleteOut)
 def post_complete(appointment_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "tours.manage")
     return complete_tour(session, principal.organization_id, appointment_id, principal.user_id)
 
 
-@router.post("/appointments/{appointment_id}/access-evidence")
+@router.post("/appointments/{appointment_id}/access-evidence", response_model=AccessOut)
 def post_access(appointment_id: UUID, body: AccessBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "tours.manage")
     return record_access(session, principal.organization_id, appointment_id, body.evidence)
 
 
-@router.post("/prospects/{prospect_id}/application-invitations")
+@router.post("/prospects/{prospect_id}/application-invitations", response_model=InvitationOut, status_code=201)
 def post_invitation(prospect_id: UUID, body: InvitationBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "invitations.write")
     return JSONResponse(status_code=201, content=invite_application(session, principal.organization_id, prospect_id, principal.user_id, body.external_reference))
 
 
-@router.post("/prospects/{prospect_id}/dispositions")
+@router.post("/prospects/{prospect_id}/dispositions", response_model=DispositionOut)
 def post_disposition(prospect_id: UUID, body: DispositionBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "dispositions.write")
     return record_disposition(session, principal.organization_id, prospect_id, body.decision_note, body.reason, principal.user_id)
 
 
-@router.post("/prospects/{prospect_id}/consumer-reports")
+@router.post("/prospects/{prospect_id}/consumer-reports", response_model=ErrorEnvelope, status_code=409)
 def post_report(prospect_id: UUID, principal: Principal = Depends(get_principal)):
     del prospect_id, principal
     problem(409, "REPORT_ORDERING_DISABLED", "No consumer-report provider is configured. No report was ordered.")

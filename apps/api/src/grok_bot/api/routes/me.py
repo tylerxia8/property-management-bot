@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, Request
 
 from grok_bot.api.deps import get_principal, request_id_of
 from grok_bot.auth.permissions import Principal
+from grok_bot.api.success import ERROR_RESPONSES, MeOut
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
-@router.get("/me")
+@router.get("/me", response_model=MeOut)
 def me(request: Request, principal: Principal = Depends(get_principal)) -> dict:
     return {
         "user_id": str(principal.user_id),

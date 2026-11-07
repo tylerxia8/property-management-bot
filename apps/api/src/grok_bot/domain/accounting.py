@@ -1261,7 +1261,7 @@ def return_unallocated_receipt(session: Session, organization_id: UUID, receipt_
         problem(
             409,
             "CONFIGURATION_REQUIRED",
-            "A return after allocation needs an agreement reversal template, which is not configured.",
+            "PRD §4.6 says a return after allocation and before payout reverses source allocations and fee accruals according to the agreement. The agreement does not specify those legs, so no reversal is posted.",
         )
     purpose = "SECURITY_DEPOSIT" if row["method"] in DEPOSIT_METHODS else "RENT"
     debit_account = "2070" if purpose == "SECURITY_DEPOSIT" else "2010"

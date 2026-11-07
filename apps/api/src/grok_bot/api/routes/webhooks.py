@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 
 from grok_bot.api.deps import get_session, request_id_of
 from grok_bot.domain.webhooks import accept_webhook
+from grok_bot.api.success import ERROR_RESPONSES, WebhookOut
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
-@router.post("/webhooks/{provider}")
+@router.post("/webhooks/{provider}", response_model=WebhookOut, status_code=202)
 async def post_webhook(provider: str, request: Request, session: Session = Depends(get_session)):
     body = await request.body()
     result = accept_webhook(

@@ -13,7 +13,7 @@ This section is the status of the branch. The historical M0 table below is not.
 | PostgreSQL outbox worker | Implemented. `dispatch_outbox` claims rows with `app_outbox_progress`, retries, and marks `FAILED` after five attempts. Delivery stays off. Tested by `test_worker_retries_then_dead_letters_without_delivery` and `test_fin_04_worker_replays_one_payable`. `grok_app` still has no general `UPDATE` on `outbox_events`. |
 | Backup restore | A local `pg_dump` / `pg_restore` into `grok_m0_restore` ran. The log is `docs/evidence/backup-restore.txt`: 1 property, 1 journal entry, 1 owner statement. Encrypted point-in-time recovery was not built. The PRD calls the 15-minute / 4-hour targets proposed. |
 | Celery and Redis | Not installed. They are the dispatcher named in PRD §7.1 and §7.2. The implemented dispatcher is PostgreSQL. No Redis or Celery credential is missing; the packages were not adopted. Redis is not a source of truth. |
-| OpenAPI TypeScript | `apps/api/scripts/generate_api_types.py` writes an interface for every component schema and a path map. Most success responses are `unknown` because the route does not declare a response schema. See `docs/ACCEPTANCE.md`. |
+| OpenAPI TypeScript | `apps/api/scripts/generate_api_types.py` writes every component schema, request body, parameter type, and success response type. Success responses without a schema: 0. File download is octet-stream. ADR 0013 |
 | Local login and step-up | Dev/test only. Production does not mount them. Production MFA is not configured. |
 
 ## Historical M0 record
@@ -55,11 +55,11 @@ These do not wait on a bank, an identity vendor, or an API key.
 | Gap | Current behavior |
 | --- | --- |
 | Celery and Redis | Not installed. PostgreSQL is the worker. Delivery is disabled. ADR 0011 |
-| Success response schemas | The new contract routes declare Pydantic success models. Routes that still return an untyped dict keep `unknown` in the generated file. The generator does not invent those fields |
+| Success response schemas | Declared for every mounted JSON success response. ADR 0013. The generated file reports zero `unknown` success responses |
 | Routes named in §9.2 and not mounted | Mounted in revision `0007_contract_routes`: ledger, journal reversal, bank transactions, bank matches, invoice read, credit notes, receipt return, and payment-item submission and settlement evidence. See ADR 0012 |
 | Resource-scoped grants | A property grant authorizes that property only. It is not an organization-wide role. Bank queues stay organization-wide because those rows have no property |
 | §13 alert routing and kill switches | Alerts are PostgreSQL rows. Dispatch can retry and record a fallback. `delivered_at` stays null. Three outbound switches default off |
-| §15.4 load test at the stated volume | `test_local_read_load` ran 20 concurrent property-list reads and required every response to be 200 and p95 under 2 seconds. It did not create 100 properties or 1,000 messages, and it does not claim the 500 ms staging target |
+| §14 local load at the proposed size | Measured in `test_proposed_portfolio_read_load` on the isolated test database: 100 properties, 300 units, 1,000 contacts, 10,000 stored messages, 20 in-process sessions, 500 reads, 0 errors. Latest printed sample: p50 210.7 ms, p95 403.7 ms, ledger p95 425.0 ms, 87.0 requests/second over 5.749 seconds. That sample met the proposed 500 ms and 1 second targets in this process. It is not a staging result. The 10× rollout check and the 1,000 maintenance files/month assumption were not run |
 | §15.4 manual screen-reader pass | Not run. The axe scan is not that pass |
 | Cookie session and CSRF | Not implemented. The session is a bearer token. ADR 0011 |
 | §16 staging acceptance | Not run. There is no staging environment and no named reviewer sign-off |
@@ -73,6 +73,7 @@ These do not wait on a bank, an identity vendor, or an API key.
 | Bank CSV column layout | §9.2 requires an import and does not define columns | CSV returns `BANK_IMPORT_FORMAT_UNCONFIGURED`. Canonical JSON import is implemented |
 | Outbound-clearing account | §4.3 assigns no code | No live payment submission. Simulator settlement uses the existing bank and payable accounts and is labeled simulator |
 | Idempotency retention period | Not specified | Rows are kept |
+| Receipt return after allocation, before payout | §4.6 says to reverse allocations and fee accruals according to the agreement, and the agreement does not name the accounts | `CONFIGURATION_REQUIRED`. No reversal is posted. The pre-allocation custody reversal and the post-payout 1040 distribution return stay as specified |
 | Step-up freshness and approval lifetime | §3 says “recent” and §4.7 proposes 24 hours | No default duration. Both settings at 0 refuse approval. The client cannot send a lifetime |
 | Statutory North Carolina timing | §12 says the legal summary is not a legal opinion | No statutory encoder |
 | Unit-command policy | Not specified. ADR 0004 records an analogy | Not described as a confirmed policy |

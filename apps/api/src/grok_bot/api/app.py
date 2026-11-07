@@ -2,7 +2,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
@@ -50,6 +51,31 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(controls_router, prefix="/v1")
     app.include_router(operations_router, prefix="/v1")
     app.include_router(webhooks_router, prefix="/v1")
+
+    @app.middleware("http")
+    async def validate_declared_success(request: Request, call_next):
+        response = await call_next(request)
+        route = request.scope.get("route")
+        model = getattr(route, "response_model", None) if route is not None else None
+        media = response.media_type or ""
+        if model is None or response.status_code >= 300 or "json" not in media:
+            return response
+        body = b""
+        async for chunk in response.body_iterator:
+            body += chunk if isinstance(chunk, bytes) else chunk.encode()
+        try:
+            TypeAdapter(model).validate_json(body)
+        except ValidationError as exc:
+            return _error_response(
+                request,
+                500,
+                "RESPONSE_CONTRACT",
+                "The handler returned a body that does not match its declared success schema.",
+                {"errors": _public_errors(exc.errors())},
+                False,
+            )
+        headers = {key: value for key, value in response.headers.items() if key.lower() != "content-length"}
+        return Response(content=body, status_code=response.status_code, headers=headers, media_type=response.media_type)
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):

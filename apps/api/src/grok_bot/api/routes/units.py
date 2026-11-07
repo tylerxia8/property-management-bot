@@ -16,11 +16,12 @@ from grok_bot.api.schemas import UnitPatch, UnitWrite
 from grok_bot.auth.permissions import Principal
 from grok_bot.domain.idempotency import request_hash
 from grok_bot.domain.portfolio import create_unit, list_units, run_idempotent_create, update_unit
+from grok_bot.api.success import ERROR_RESPONSES, UnitOut, UnitPageOut
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
-@router.get("/properties/{property_id}/units")
+@router.get("/properties/{property_id}/units", response_model=UnitPageOut)
 def list_units_route(
     property_id: UUID,
     request: Request,
@@ -40,7 +41,7 @@ def list_units_route(
     )
 
 
-@router.post("/properties/{property_id}/units")
+@router.post("/properties/{property_id}/units", response_model=UnitOut, status_code=201)
 def create_unit_route(
     property_id: UUID,
     body: UnitWrite,
@@ -67,7 +68,7 @@ def create_unit_route(
     )
 
 
-@router.patch("/properties/{property_id}/units/{unit_id}")
+@router.patch("/properties/{property_id}/units/{unit_id}", response_model=UnitOut)
 def patch_unit_route(
     property_id: UUID,
     unit_id: UUID,

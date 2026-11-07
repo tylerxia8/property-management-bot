@@ -144,23 +144,67 @@ def test_manual_evidence_is_not_a_simulator_event(client, migrator_engine, simul
     assert submitted.status_code == 409
     assert submitted.json()["error"]["code"] == "KILL_SWITCH"
     _enable_payment(client, world)
-    item_id = batch["items"][0]["id"]
-    evidence = client.post(
+    item = batch["items"][0]
+    item_id = item["id"]
+    denied = client.post(
+        f"/v1/payment-items/{item_id}/submission-evidence",
+        headers={**world["accounting"], "Idempotency-Key": "evidence-staff"},
+        json={"reference": "bank-ref-1"},
+    )
+    assert denied.status_code == 403
+    missing = client.post(
         f"/v1/payment-items/{item_id}/submission-evidence",
         headers=world["manager"],
+        json={"reference": "bank-ref-1"},
+    )
+    assert missing.status_code == 422
+    assert missing.json()["error"]["code"] == "IDEMPOTENCY_KEY_REQUIRED"
+    evidence = client.post(
+        f"/v1/payment-items/{item_id}/submission-evidence",
+        headers={**world["manager"], "Idempotency-Key": "evidence-submit"},
         json={"reference": "bank-ref-1"},
     )
     assert evidence.status_code == 200, evidence.text
     assert evidence.json()["simulator"] is False
     assert evidence.json()["settled"] is False
+    assert evidence.json()["bank_contacted"] is False
+    assert evidence.json()["amount_cents"] == item["amount_cents"]
+    assert evidence.json()["currency"] == "USD"
+    replayed = client.post(
+        f"/v1/payment-items/{item_id}/submission-evidence",
+        headers={**world["manager"], "Idempotency-Key": "evidence-submit"},
+        json={"reference": "bank-ref-1"},
+    )
+    assert replayed.status_code == 200, replayed.text
+    duplicate = client.post(
+        f"/v1/payment-items/{item_id}/submission-evidence",
+        headers={**world["manager"], "Idempotency-Key": "evidence-submit-again"},
+        json={"reference": "bank-ref-2"},
+    )
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "DUPLICATE_EVIDENCE"
     settled = client.post(
         f"/v1/payment-items/{item_id}/settlement-evidence",
-        headers=world["manager"],
+        headers={**world["manager"], "Idempotency-Key": "evidence-settle"},
         json={"reference": "bank-ref-1-settled", "posting_date": "2026-11-23"},
     )
     assert settled.status_code == 200, settled.text
     assert settled.json()["simulator"] is False
     assert settled.json()["bank_contacted"] is False
+    assert settled.json()["amount_cents"] == item["amount_cents"]
+    again = client.post(
+        f"/v1/payment-items/{item_id}/settlement-evidence",
+        headers={**world["manager"], "Idempotency-Key": "evidence-settle"},
+        json={"reference": "bank-ref-1-settled", "posting_date": "2026-11-23"},
+    )
+    assert again.status_code == 200, again.text
+    second = client.post(
+        f"/v1/payment-items/{item_id}/settlement-evidence",
+        headers={**world["manager"], "Idempotency-Key": "evidence-settle-again"},
+        json={"reference": "bank-ref-1-settled", "posting_date": "2026-11-23"},
+    )
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "EVIDENCE_STATE"
     with migrator_engine.connect() as conn:
         kinds = conn.execute(
             text("SELECT kind, simulator FROM payment_events WHERE organization_id = :org ORDER BY kind"),
@@ -170,8 +214,19 @@ def test_manual_evidence_is_not_a_simulator_event(client, migrator_engine, simul
             text("SELECT count(*) FROM journal_entries WHERE organization_id = :org AND source_type = 'INVOICE_SETTLEMENT'"),
             {"org": world["org_id"]},
         ).scalar()
+        audits = conn.execute(
+            text(
+                """
+                SELECT action FROM audit_events
+                WHERE organization_id = :org AND action IN ('distribution.submission_evidence', 'distribution.settlement_evidence')
+                """
+            ),
+            {"org": world["org_id"]},
+        ).scalars().all()
     assert ("MANUAL_SETTLEMENT", False) in [(row.kind, row.simulator) for row in kinds]
+    assert ("MANUAL_SUBMISSION", False) in [(row.kind, row.simulator) for row in kinds]
     assert journals == 1
+    assert set(audits) == {"distribution.submission_evidence", "distribution.settlement_evidence"}
 
 
 def test_bank_match_does_not_post_and_cannot_exceed(client, migrator_engine):

@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 from grok_bot.api.deps import get_principal, get_session
 from grok_bot.auth.permissions import Principal
 from grok_bot.errors import problem
+from grok_bot.api.success import ERROR_RESPONSES, OperationsQueueOut
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
-@router.get("/operations/queue")
+@router.get("/operations/queue", response_model=OperationsQueueOut)
 def get_queue(principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     if not (principal.allows("distributions.approve") or principal.allows("receipts.read")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")

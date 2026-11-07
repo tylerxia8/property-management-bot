@@ -1,5 +1,5 @@
 
-up to date, audited 40 packages in 327ms
+up to date, audited 40 packages in 349ms
 
 8 packages are looking for funding
   run `npm fund` for details
@@ -13,7 +13,7 @@ TAP version 13
 # Subtest: tests/no-database.test.mjs
 ok 1 - tests/no-database.test.mjs
   ---
-  duration_ms: 27.968808
+  duration_ms: 29.454464
   type: 'test'
   ...
 1..1
@@ -24,24 +24,24 @@ ok 1 - tests/no-database.test.mjs
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 33.304803
+# duration_ms 35.238515
 
 > grok-bot-web@0.1.0 build
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.ts took 18ms
+✓ Running next.config.ts took 25ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 110ms
+✓ Compiled successfully in 173ms
   Running TypeScript ...
-  Finished TypeScript in 212ms ...
+  Finished TypeScript in 284ms ...
   Collecting page data using 3 workers ...
   Generating static pages using 3 workers (0/11) ...
   Generating static pages using 3 workers (2/11) 
   Generating static pages using 3 workers (5/11) 
   Generating static pages using 3 workers (8/11) 
-✓ Generating static pages using 3 workers (11/11) in 186ms
+✓ Generating static pages using 3 workers (11/11) in 241ms
   Finalizing page optimization ...
 
 Route (app)
@@ -68,11 +68,11 @@ Route (app)
 
 Running 6 tests using 2 workers
 
-  ✓  1 tests/accounting.spec.ts:3:1 › accounting records a check that is not yet available (619ms)
-  ✓  2 tests/accessibility.spec.ts:12:1 › core screens have no serious or critical axe violations (1.3s)
-  ✓  4 tests/maintenance.spec.ts:3:1 › tenant report keeps a ticket and does not claim responders were contacted (485ms)
-  ✓  3 tests/distributions.spec.ts:11:1 › manager export does not settle and owner sees only their statement (1.5s)
-  ✓  5 tests/prequalification.spec.ts:3:1 › prospect intake reaches human review and a local tour hold (1.2s)
-  ✓  6 tests/shell.spec.ts:11:1 › local shell discloses dev auth and enforces role capabilities (1.2s)
+  ✓  1 tests/accounting.spec.ts:3:1 › accounting records a check that is not yet available (965ms)
+  ✓  2 tests/accessibility.spec.ts:12:1 › core screens have no serious or critical axe violations (1.8s)
+  ✓  4 tests/maintenance.spec.ts:3:1 › tenant report keeps a ticket and does not claim responders were contacted (691ms)
+  ✓  3 tests/distributions.spec.ts:11:1 › manager export does not settle and owner sees only their statement (1.9s)
+  ✓  5 tests/prequalification.spec.ts:3:1 › prospect intake reaches human review and a local tour hold (1.4s)
+  ✓  6 tests/shell.spec.ts:11:1 › local shell discloses dev auth and enforces role capabilities (1.5s)
 
-  6 passed (4.3s)
+  6 passed (5.4s)

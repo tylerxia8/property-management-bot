@@ -9,11 +9,12 @@ from grok_bot.auth.permissions import Principal
 from grok_bot.auth.tokens import mint_local_token
 from grok_bot.domain.distributions import record_step_up
 from grok_bot.errors import problem
+from grok_bot.api.success import ERROR_RESPONSES, LoginOut, StepUpOut
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
-@router.post("/auth/local/login")
+@router.post("/auth/local/login", response_model=LoginOut)
 def local_login(body: LoginBody, request: Request, session: Session = Depends(get_session)) -> dict:
     settings = request.app.state.settings
     if not settings.allows_local_auth:
@@ -56,7 +57,7 @@ def local_login(body: LoginBody, request: Request, session: Session = Depends(ge
     }
 
 
-@router.post("/auth/local/step-up")
+@router.post("/auth/local/step-up", response_model=StepUpOut)
 def local_step_up(body: LoginBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)) -> dict:
     if not request.app.state.settings.allows_local_auth:
         problem(404, "NOT_FOUND", "Not found.")

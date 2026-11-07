@@ -49,7 +49,9 @@ Phase 5 adds two more settings:
 
 The outbox worker is `dispatch_outbox` in `grok_bot.domain.outbox_worker`. It reads PostgreSQL only, retries, and does not deliver. Redis is not used.
 
-`apps/api/scripts/generate_api_types.py` writes `apps/web/lib/api-types.generated.ts` from the OpenAPI document. Every component schema becomes a TypeScript interface, and every operation is on `apiPaths`. Success responses that the route does not declare stay `unknown`. The generator does not invent those fields. `test_openapi_types_match_the_running_app` fails if the file drifts. `openapi-typescript` was not added because 7.13.0 requires TypeScript 5 and this app pins TypeScript 7.0.2.
+`apps/api/scripts/generate_api_types.py` writes `apps/web/lib/api-types.generated.ts` from the OpenAPI document. Every component schema becomes a TypeScript interface. Each operation includes its request body, parameter types, and success response types. A success response without a schema is `unknown`, and `test_every_mounted_success_response_has_a_schema` fails while any remain. Head revision `0008_success_contracts` is the current schema. `openapi-typescript` was not added because 7.13.0 requires TypeScript 5 and this app pins TypeScript 7.0.2.
+
+Manual submission and settlement evidence require `Idempotency-Key`, `distributions.approve`, and a reference. They record the item amount in USD and set `bank_contacted` false. They do not call a bank and they do not read the fixture settlement flag. ADR 0013.
 
 `scripts/backup_restore_drill.sh` dumps a local database and restores it into `grok_m0_restore`. That is a local drill, not encrypted point-in-time recovery.
 

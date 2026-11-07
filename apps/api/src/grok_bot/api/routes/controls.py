@@ -3,11 +3,12 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from grok_bot.api.deps import get_principal, get_session, require_capability
+from grok_bot.api.success import ERROR_RESPONSES, AlertOut, SwitchOut
 from grok_bot.auth.permissions import Principal
 from grok_bot.domain.alerts import dispatch_alerts, raise_alert
 from grok_bot.domain.controls import outbound_flags, set_outbound_flags
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
 class SwitchBody(BaseModel):
@@ -17,24 +18,10 @@ class SwitchBody(BaseModel):
     payment_enabled: bool
 
 
-class SwitchOut(BaseModel):
-    messaging_enabled: bool
-    calendar_enabled: bool
-    payment_enabled: bool
-
-
 class AlertBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: str
     fail: bool = False
-
-
-class AlertOut(BaseModel):
-    id: str | None = None
-    status: str | None = None
-    delivered_at: str | None = None
-    delivered: bool
-    processed: list[dict] | None = None
 
 
 @router.get("/kill-switches", response_model=SwitchOut)

@@ -18,11 +18,12 @@ from grok_bot.api.schemas import PropertyPatch, PropertyWrite
 from grok_bot.auth.permissions import Principal
 from grok_bot.domain.idempotency import request_hash
 from grok_bot.domain.portfolio import create_property, get_property, list_properties, run_idempotent_create, update_property
+from grok_bot.api.success import ERROR_RESPONSES, PropertyOut, PropertyPageOut
 
-router = APIRouter()
+router = APIRouter(responses=ERROR_RESPONSES)
 
 
-@router.get("/properties")
+@router.get("/properties", response_model=PropertyPageOut)
 def list_properties_route(
     request: Request,
     limit: int = Query(default=50, ge=1, le=200),
@@ -40,7 +41,7 @@ def list_properties_route(
     )
 
 
-@router.post("/properties")
+@router.post("/properties", response_model=PropertyOut, status_code=201)
 def create_property_route(
     body: PropertyWrite,
     request: Request,
@@ -62,7 +63,7 @@ def create_property_route(
     return _created(result, status)
 
 
-@router.get("/properties/{property_id}")
+@router.get("/properties/{property_id}", response_model=PropertyOut)
 def get_property_route(
     property_id: UUID,
     request: Request,
@@ -74,7 +75,7 @@ def get_property_route(
     return JSONResponse(status_code=200, content=body, headers={"ETag": f'"{body["version"]}"'})
 
 
-@router.patch("/properties/{property_id}")
+@router.patch("/properties/{property_id}", response_model=PropertyOut)
 def patch_property_route(
     property_id: UUID,
     body: PropertyPatch,

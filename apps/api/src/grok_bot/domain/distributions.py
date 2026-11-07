@@ -507,26 +507,39 @@ def get_batch(session, organization_id, batch_id) -> dict:
     }
 
 
-def record_submission_evidence(session, organization_id, item_id, reference: str, now) -> dict:
+def record_submission_evidence(session, organization_id, item_id, reference: str, now, actor_id, request_id: str) -> dict:
     if not reference.strip():
         problem(422, "VALIDATION_ERROR", "Submission evidence needs a reference.")
     item, batch = _item_with_batch(session, organization_id, item_id)
+    if item["status"] != "APPROVED":
+        problem(409, "EVIDENCE_STATE", "Submission evidence requires an approved unpaid item.")
     _require_current_approval(session, organization_id, batch["id"], now)
+    _reject_duplicate_evidence(session, organization_id, item["id"], "MANUAL_SUBMISSION")
     _event(session, organization_id, item, "MANUAL_SUBMISSION", reference, simulator=False)
-    return {
-        "id": str(item["id"]),
-        "kind": "MANUAL_SUBMISSION",
-        "simulator": False,
-        "settled": False,
-        "reference": reference,
-    }
+    write_audit(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="distribution.submission_evidence",
+        target_type="distribution_item",
+        target_id=item["id"],
+        target_version=None,
+        request_id=request_id,
+        before_state={"status": item["status"]},
+        after_state={"kind": "MANUAL_SUBMISSION", "simulator": False, "bank_contacted": False, "amount_cents": item["amount_cents"]},
+    )
+    return _evidence_body(item, "MANUAL_SUBMISSION", reference, settled=False)
 
 
-def record_settlement_evidence(session, organization_id, item_id, reference: str, posting_date, now) -> dict:
+def record_settlement_evidence(session, organization_id, item_id, reference: str, posting_date, now, actor_id, request_id: str) -> dict:
     if not reference.strip():
         problem(422, "VALIDATION_ERROR", "Settlement evidence needs a reference.")
     item, batch = _item_with_batch(session, organization_id, item_id)
+    if item["status"] not in {"APPROVED", "UNKNOWN"}:
+        problem(409, "EVIDENCE_STATE", "Settlement evidence requires an approved or unknown item that is not already settled.")
     _require_current_approval(session, organization_id, batch["id"], now)
+    _reject_duplicate_evidence(session, organization_id, item["id"], "MANUAL_SETTLEMENT")
+    _reject_duplicate_evidence(session, organization_id, item["id"], "SIMULATOR_SETTLED")
     _settle_item(
         session,
         organization_id,
@@ -537,14 +550,52 @@ def record_settlement_evidence(session, organization_id, item_id, reference: str
         simulator=False,
         evidence=reference,
     )
+    write_audit(
+        session,
+        organization_id=organization_id,
+        actor_id=actor_id,
+        action="distribution.settlement_evidence",
+        target_type="distribution_item",
+        target_id=item["id"],
+        target_version=None,
+        request_id=request_id,
+        before_state={"status": item["status"]},
+        after_state={
+            "kind": "MANUAL_SETTLEMENT",
+            "simulator": False,
+            "bank_contacted": False,
+            "amount_cents": item["amount_cents"],
+            "currency": "USD",
+        },
+    )
+    return _evidence_body(item, "MANUAL_SETTLEMENT", reference, settled=True)
+
+
+def _evidence_body(item, kind: str, reference: str, settled: bool) -> dict:
     return {
         "id": str(item["id"]),
-        "kind": "MANUAL_SETTLEMENT",
+        "kind": kind,
         "simulator": False,
-        "settled": True,
+        "settled": settled,
         "reference": reference,
         "bank_contacted": False,
+        "amount_cents": item["amount_cents"],
+        "currency": "USD",
     }
+
+
+def _reject_duplicate_evidence(session, organization_id, item_id, kind: str) -> None:
+    existing = session.execute(
+        text(
+            """
+            SELECT id FROM payment_events
+            WHERE organization_id = :organization_id AND item_id = :item_id AND kind = :kind
+            """
+        ),
+        {"organization_id": organization_id, "item_id": item_id, "kind": kind},
+    ).scalar()
+    if existing is not None:
+        problem(409, "DUPLICATE_EVIDENCE", "That evidence is already recorded for this item.")
 
 
 def _item_with_batch(session, organization_id, item_id):
@@ -566,6 +617,8 @@ def _item_with_batch(session, organization_id, item_id):
 
 
 def _settle_item(session, organization_id, property_id, item, posting_date, event_kind="SIMULATOR_SETTLED", simulator=True, evidence=None) -> None:
+    if not simulator and not (evidence or "").strip():
+        problem(422, "VALIDATION_ERROR", "Settlement evidence needs a reference before cash can clear.")
     existing = session.execute(
         text(
             """
