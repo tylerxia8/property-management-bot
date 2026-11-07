@@ -78,17 +78,21 @@ def test_mnt_01_sink_questions_cover_location_media_safety_and_access(client, mi
     assert len(ticket["next_questions"]) in {1, 2}
     seen = list(ticket["next_questions"])
     last = ticket
-    for reply in ("Under the kitchen sink", "It started yesterday", "I will answer once more"):
+    answers = [("exact_location", "Under the kitchen sink"), ("onset_frequency", "It started yesterday"),
+               ("media", "No photo is practical right now"), ("contact", "Email after 2pm"),
+               ("access_windows", "Tuesday afternoon"), ("entry_safety", "A dog is in the home")]
+    for field, reply in answers:
         response = client.post(
-            f"/v1/maintenance-tickets/{ticket['id']}/messages",
-            headers=staff["tenant"],
-            json={"body": reply},
+            f"/v1/maintenance-tickets/{ticket['id']}/messages", headers=staff["tenant"],
+            json={"body": reply, "field_key": field},
         )
         assert response.status_code == 200, response.text
         last = response.json()
         assert last["id"] == ticket["id"]
         assert len(last["next_questions"]) <= 2
         seen.extend(last["next_questions"])
+    last = client.post(f"/v1/maintenance-tickets/{ticket['id']}/messages", headers=staff["tenant"],
+                       json={"body": "That's all, hand off to the manager"}).json()
     combined = " ".join(seen).lower()
     assert "room" in combined and "fixture" in combined
     assert "when did you first notice" in combined

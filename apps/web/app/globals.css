@@ -90,6 +90,7 @@ p {
   min-height: 100vh;
 }
 .sidebar {
+  overflow-y: auto;
   background: #112e28;
   color: #d6e2dc;
   padding: 38px 20px 22px;
@@ -806,5 +807,346 @@ form > p {
   .shell .review-list li {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+/* Maintenance workspace */
+.maintenance-warning {
+  margin: 24px 0;
+  padding: 16px 20px;
+  border: 1px solid #dfd6bd;
+  background: #fffaf0;
+  color: #665533;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.maintenance-warning strong {
+  display: block;
+  color: #594522;
+}
+.maintenance-success {
+  padding: 16px 20px;
+  border: 1px solid #bad5c2;
+  background: #eef8f0;
+  border-radius: 10px;
+  color: #245537;
+  font-size: 13px;
+}
+.maintenance-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+}
+.maintenance-toolbar h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.maintenance-toolbar > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.secondary-button {
+  background: white;
+  color: #28593f;
+  border: 1px solid #b8cbbf;
+  font-size: 12px;
+}
+.secondary-button:hover {
+  background: #edf4ef;
+}
+.form-intro {
+  grid-column: 1/-1;
+}
+.form-intro h3 {
+  margin: 10px 0;
+}
+.form-intro p,
+.field-help {
+  color: #52695b;
+  font-size: 12px;
+  margin: 0;
+  line-height: 1.7;
+}
+.step-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #52695b;
+  font-weight: 700;
+}
+.maintenance-intake label:has(textarea),
+.maintenance-intake .field-help {
+  grid-column: 1/-1;
+}
+.maintenance-intake .field-help {
+  margin-top: -12px;
+}
+.inline-note {
+  background: #f4f6f1;
+  padding: 14px;
+  border-radius: 8px;
+}
+.maintenance-detail {
+  background: white;
+  border: 1px solid #dce5de;
+  border-radius: 14px;
+  margin: 24px 0;
+  overflow: hidden;
+}
+.ticket-summary {
+  padding: 26px;
+  border-bottom: 1px solid #e1e9e2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.ticket-summary .eyebrow {
+  margin: 0 0 12px;
+}
+.ticket-summary h2 {
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+.ticket-summary p:last-child {
+  margin: 0;
+  font-size: 12px;
+}
+.ticket-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.status-pill {
+  display: inline-block;
+  border: 1px solid #d5e1d8;
+  background: #f1f6f0;
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 10px;
+  color: #365a42;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.status-pill.danger {
+  color: #a12c25;
+  background: #fff0ed;
+  border-color: #ecc1ba;
+}
+.muted {
+  color: #52695b;
+}
+.ticket-body {
+  padding: 26px;
+}
+.ticket-body h3 {
+  font-size: 17px;
+  margin: 0 0 12px;
+}
+.ticket-description > p {
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+.category-label {
+  font-size: 11px;
+  color: #52695b;
+}
+.next-step {
+  background: #f2f6f0;
+  border-radius: 9px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.next-step p {
+  margin: 0;
+  font-size: 13px;
+}
+.emergency-panel {
+  background: #fff0eb;
+  border-bottom: 1px solid #efc7bd;
+  padding: 24px 26px;
+  color: #8a3025;
+}
+.emergency-panel h3 {
+  color: #8a3025;
+  margin: 0;
+}
+.emergency-panel p {
+  font-size: 14px;
+}
+.intake-details {
+  border-bottom: 1px solid #e1e9e2;
+  padding: 0 0 24px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.intake-details summary {
+  font-weight: 600;
+}
+.intake-details dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.intake-details dt {
+  color: #52695b;
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.intake-details dd {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.photo-section {
+  margin: 24px 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e1e9e2;
+}
+.photo-section > p {
+  font-size: 12px;
+  color: #52695b;
+}
+.optional-label {
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 6px;
+  color: #52695b;
+}
+.photo-upload {
+  max-width: 500px;
+  margin: 20px 0;
+}
+.photo-upload small {
+  font-weight: 400;
+  color: #52695b;
+}
+.photo-list {
+  list-style: none;
+  padding: 0 !important;
+}
+.photo-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.question-panel {
+  padding: 20px;
+  border-left: 3px solid #73977d;
+  background: #f8faf6;
+  border-radius: 0 8px 8px 0;
+}
+.question-panel ul {
+  margin-bottom: 0;
+}
+.request-history {
+  margin-top: 32px;
+  border-top: 1px solid #e1e9e2;
+  padding-top: 26px;
+}
+.request-history ol {
+  list-style: none;
+  padding-left: 0;
+}
+.request-history li {
+  border-left: 2px solid #d7e4da;
+  padding: 4px 0 20px 18px;
+}
+.request-history time {
+  display: block;
+  font-size: 10px;
+  color: #52695b;
+  margin-top: 5px;
+}
+.request-history p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.request-list-section {
+  margin-top: 36px !important;
+}
+.maintenance-request-list {
+  list-style: none;
+  padding: 0 !important;
+}
+.shell .maintenance-request-list li {
+  padding: 0;
+  margin: 12px 0;
+}
+.shell .maintenance-request-list button {
+  margin: 0;
+}
+.request-item {
+  width: 100%;
+  background: white;
+  border: 1px solid #dce5de;
+  border-radius: 12px;
+  padding: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  text-align: left;
+  color: #2b4936;
+  font-weight: 400;
+}
+.request-item:hover,
+.request-item.selected {
+  background: #f3f8ef;
+  border-color: #8aa993;
+}
+.request-item-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.request-item-main strong {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+}
+.request-item-main > span {
+  font-size: 11px;
+  color: #52695b;
+}
+.request-number {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 650px) {
+  .maintenance-toolbar,
+  .ticket-summary,
+  .request-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .maintenance-toolbar h2 {
+    margin-bottom: 8px;
+  }
+  .ticket-summary,
+  .ticket-body {
+    padding: 20px;
+  }
+  .intake-details dl {
+    grid-template-columns: 1fr;
+  }
+  .request-item-main strong {
+    max-width: 65vw;
+  }
+  .request-list-section .section-heading {
+    flex-direction: column;
+  }
+  .maintenance-detail form {
+    padding: 18px;
+  }
+  .status-pill {
+    white-space: normal;
   }
 }
