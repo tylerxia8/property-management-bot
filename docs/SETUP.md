@@ -76,7 +76,7 @@ The browser calls `http://127.0.0.1:8000` unless `NEXT_PUBLIC_API_BASE_URL` is s
 
 From the repository root, `scripts/run_m0_evidence.sh` bootstraps roles, runs pytest, builds the web app, typechecks it, and runs Playwright against the API. It writes logs under `docs/evidence/`. The web install uses `npm ci` and `apps/web/package-lock.json`.
 
-`compose.demo.yaml` and `scripts/package_demo_bundle.py` build a laptop zip that publishes only `127.0.0.1:3000`. Postgres stays on the compose network. ADR 0016.
+`compose.demo.yaml` and `scripts/package_demo_bundle.py` build a laptop zip that publishes only `127.0.0.1:3000`. Postgres stays on the compose network. Windows uses the PowerShell launchers. macOS uses `/bin/bash start-macos.sh`. ADR 0016.
 
 `scripts/reset_demo_sample.sh` recreates only `grok_demo_sample`. It refuses production. The fixture organization is fictional, outbound switches stay off, and `POST /v1/demo/session` is mounted only for that database when `DEMO_FIXTURE=sample` and `APP_ENV` is development or test. ADR 0015.
 

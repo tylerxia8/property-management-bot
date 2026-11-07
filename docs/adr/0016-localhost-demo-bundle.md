@@ -12,4 +12,4 @@ Role and database passwords are generated on the computer into an untracked `.en
 
 ## Consequences
 
-Image builds use `postgres:16.10-bookworm`, `python:3.12.3-slim-bookworm`, and `node:22.23.4-bookworm-slim`. That Postgres tag is a pinned 16 release, not the Ubuntu 16.15 package used for local tests. The bundle does not install ffmpeg, so media derivatives are not produced. This is not a production deployment.
+Image builds use `postgres:16.10-bookworm`, `python:3.12.3-slim-bookworm`, and `node:22.23.4-bookworm-slim`. Those registry indexes include `linux/arm64` and `linux/amd64`. A Mac launcher is `start-macos.sh`. It was not executed on Apple silicon. The bundle does not install ffmpeg, so media derivatives are not produced. This is not a production deployment.

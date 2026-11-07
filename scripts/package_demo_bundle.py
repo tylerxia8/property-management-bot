@@ -28,6 +28,9 @@ INCLUDE = [
     "deploy/grok-property-sample/Start-GrokDemo.ps1",
     "deploy/grok-property-sample/Stop-GrokDemo.ps1",
     "deploy/grok-property-sample/Reset-GrokDemo.ps1",
+    "deploy/grok-property-sample/start-macos.sh",
+    "deploy/grok-property-sample/stop-macos.sh",
+    "deploy/grok-property-sample/reset-macos.sh",
     "deploy/grok-property-sample/README.md",
 ]
 SKIP_PARTS = {".git", "node_modules", ".venv", ".next", "__pycache__", ".pytest_cache", ".hypothesis", ".env"}
