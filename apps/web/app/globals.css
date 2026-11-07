@@ -65,3 +65,9 @@ button { cursor: pointer; }
   border-top: 1px solid #d6d3d1;
   padding: 12px 0;
 }
+
+.demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.demo-card { border: 1px solid #d6d3d1; border-radius: 10px; background: #fff; padding: 20px; }
+.demo-card h3 { margin-top: 0; }
+.demo-card button { width: 100%; background: #1d4e89; color: #fff; border: 0; border-radius: 6px; }
+button:disabled { cursor: wait; opacity: 0.65; }

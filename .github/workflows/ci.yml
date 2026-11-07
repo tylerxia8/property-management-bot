@@ -57,6 +57,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
       - name: Build the fixture demo and check loopback health
         run: |
           python3 - << 'PY'
@@ -96,5 +102,24 @@ jobs:
           done
           curl -sf http://127.0.0.1:3000/v1/health >/dev/null
           curl -sf http://127.0.0.1:3000/ | grep -q "Fixture sample."
+
+      - name: Rehearse the packaged demo in Chromium
+        working-directory: apps/web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test --config playwright.demo.config.ts
+
+      - name: Keep browser evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-browser-failure
+          path: apps/web/test-results
+          retention-days: 7
+
+      - name: Stop the CI sample
+        if: always()
+        run: |
           docker compose --env-file .env.demo-ci -f compose.demo.yaml -p grok-property-sample-ci down -v --remove-orphans
           rm -f .env.demo-ci /tmp/demo-config.yml

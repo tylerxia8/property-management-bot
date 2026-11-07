@@ -14,50 +14,69 @@ export default function PropertyDetailPage() {
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
       router.replace("/login");
       return;
     }
-    void load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
   }, [params.id, router]);
 
-  async function load() {
-    const meResponse = await api("/v1/me");
-    if (!meResponse.ok) {
-      router.replace("/login");
-      return;
+  async function load(signal?: AbortSignal) {
+    setLoading(true);
+    try {
+      const meResponse = await api("/v1/me", { signal });
+      if (!meResponse.ok) {
+        router.replace("/login");
+        return;
+      }
+      setMe(await meResponse.json());
+      const propertyResponse = await api(`/v1/properties/${params.id}`, { signal });
+      const propertyBody = await propertyResponse.json();
+      if (!propertyResponse.ok) {
+        setError(propertyBody.error?.message ?? "Property not found.");
+        return;
+      }
+      setProperty(propertyBody);
+      setName(propertyBody.name);
+      const unitResponse = await api(`/v1/properties/${params.id}/units`, { signal });
+      const unitBody = await unitResponse.json();
+      if (unitResponse.ok) setUnits(unitBody.items);
+    } catch {
+      if (!signal?.aborted) setError("The property could not be loaded. Refresh and try again.");
+    } finally {
+      if (!signal?.aborted) setLoading(false);
     }
-    setMe(await meResponse.json());
-    const propertyResponse = await api(`/v1/properties/${params.id}`);
-    const propertyBody = await propertyResponse.json();
-    if (!propertyResponse.ok) {
-      setError(propertyBody.error?.message ?? "Property not found.");
-      return;
-    }
-    setProperty(propertyBody);
-    setName(propertyBody.name);
-    const unitResponse = await api(`/v1/properties/${params.id}/units`);
-    const unitBody = await unitResponse.json();
-    if (unitResponse.ok) setUnits(unitBody.items);
   }
 
   async function onRename(event: FormEvent) {
     event.preventDefault();
-    if (!property) return;
+    if (!property || loading || saving) return;
     setError("");
-    const response = await api(`/v1/properties/${property.id}`, {
-      method: "PATCH",
-      headers: { "If-Match": String(property.version) },
-      body: JSON.stringify({ name }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error?.message ?? "Rename failed.");
-      return;
+    setSaving(true);
+    try {
+      const response = await api(`/v1/properties/${property.id}`, {
+        method: "PATCH",
+        headers: { "If-Match": String(property.version) },
+        body: JSON.stringify({ name }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setError(body.error?.message ?? "Rename failed.");
+        return;
+      }
+      setProperty(body);
+      setName(body.name);
+    } catch {
+      setError("The save result could not be confirmed. Refresh before trying again.");
+    } finally {
+      setSaving(false);
     }
-    await load();
   }
 
   async function onAddUnit(event: FormEvent) {
@@ -92,13 +111,14 @@ export default function PropertyDetailPage() {
           {error}
         </p>
       ) : null}
-      {property && canUpdate ? (
+      {loading ? <p role="status">Loading property…</p> : null}
+      {property && canUpdate && !loading ? (
         <form onSubmit={onRename}>
           <label>
             Name
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
+            <input value={name} onChange={(event) => setName(event.target.value)} required disabled={saving} />
           </label>
-          <button type="submit">Save changes</button>
+          <button type="submit" disabled={saving || name === property.name}>{saving ? "Saving…" : "Save changes"}</button>
         </form>
       ) : null}
       <h2>Units</h2>

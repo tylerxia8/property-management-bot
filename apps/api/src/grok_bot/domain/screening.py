@@ -226,7 +226,7 @@ def update_intake(session, organization_id, prospect_id, body: dict, actor_id) -
         "rental_history",
         "income_source",
     ):
-        if key in body and body[key] is not None:
+        if key in body:
             merged[key] = body[key]
     if "income_original_cents" in body or "income_period" in body:
         if merged["income_original_cents"] is not None and merged["income_period"]:

@@ -6,6 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INCLUDE = [
+    "Start-Demo.cmd",
+    "docs/DEMO_WALKTHROUGH.md",
     "compose.demo.yaml",
     "apps/api/Dockerfile",
     "apps/api/.dockerignore",

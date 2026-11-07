@@ -45,8 +45,12 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
 
   await signIn(page, "manager@example.test", "local-manager-password");
   await page.getByRole("link", { name: "Canal House" }).click();
+  await expect(page.getByLabel("Name")).toHaveValue("Canal House");
   await page.getByLabel("Name").fill("Canal House North");
+  const saved = page.waitForResponse(response => response.request().method() === "PATCH" && response.url().includes("/v1/properties/"));
   await page.getByRole("button", { name: "Save changes" }).click();
+  const saveResponse = await saved;
+  expect(saveResponse.ok(), await saveResponse.text()).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Canal House North" })).toBeVisible();
   await expect(page.getByText("Main")).toBeVisible();
   await expect(page.getByRole("button", { name: "Add unit" })).toHaveCount(0);

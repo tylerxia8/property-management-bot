@@ -52,6 +52,27 @@ def test_pro_01_missing_period_is_not_zero(client, migrator_engine):
     assert dispositions == 0
 
 
+def test_clearing_income_period_removes_derived_income_and_preserves_omitted_fields(client, migrator_engine):
+    staff = _people(client, migrator_engine)
+    _publish_fixture(client, staff, ratio=2)
+    prospect = _start(client, staff)
+    _complete(client, staff, prospect["id"], income=300000)
+    response = client.patch(
+        f"/v1/prospects/{prospect['id']}/intake", headers=staff["prospect"],
+        json={"income_period": None},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["income_period"] is None
+    assert response.json()["income_monthly_cents"] is None
+    assert response.json()["income_original_cents"] == 300000
+    assert response.json()["lease_months"] == 12
+    result = client.post(f"/v1/prospects/{prospect['id']}/evaluate", headers=staff["prospect"])
+    assert result.status_code == 200, result.text
+    assert result.json()["result"] == "NEEDS_INFORMATION"
+    assert "income_period" in result.json()["missing_fields"]
+    assert result.json()["final_denial"] is False
+
+
 def test_pro_02_qualified_unverified_booking_orders_no_report(client, migrator_engine):
     staff = _people(client, migrator_engine)
     _publish_fixture(client, staff, ratio=2)

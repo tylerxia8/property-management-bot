@@ -4,6 +4,8 @@ This bundle builds the merged app and a private Postgres database named `grok_de
 
 Docker Desktop must be running its Linux engine before you start. The scripts do not change Docker contexts or other projects.
 
+On Windows, double-click `Start-Demo.cmd` to build/start the sample and open your browser. It works from the repository root or the extracted bundle. Use `docs/DEMO_WALKTHROUGH.md` in the extracted bundle or repository root for a rehearsable 8–10 minute demo. The five home-screen buttons open Accounting, Prospect, Tenant, Manager, and Owner directly.
+
 ```powershell
 Set-Location <this-folder>
 .\Start-GrokDemo.ps1

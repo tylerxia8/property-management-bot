@@ -264,7 +264,7 @@ def post_prospect(body: ProspectStart, request: Request, principal: Principal = 
 @router.patch("/prospects/{prospect_id}/intake", response_model=IntakeUpdatedOut)
 def patch_intake(prospect_id: UUID, body: IntakeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     _require_own(principal, session, prospect_id)
-    result = update_intake(session, principal.organization_id, prospect_id, body.model_dump(exclude_none=True), principal.user_id)
+    result = update_intake(session, principal.organization_id, prospect_id, body.model_dump(exclude_unset=True), principal.user_id)
     result["request_id"] = request_id_of(request)
     return result
 
