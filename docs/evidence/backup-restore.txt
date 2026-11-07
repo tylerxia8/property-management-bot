@@ -1,0 +1,8 @@
+    table_name    | count 
+------------------+-------
+ journal_entries  |     1
+ owner_statements |     1
+ properties       |     1
+(3 rows)
+
+local backup restore drill completed for grok_m0_e2e

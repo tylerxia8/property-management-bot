@@ -1,0 +1,61 @@
+:root {
+  color: #1c1917;
+  background: #f7f4ef;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+}
+
+a { color: #1d4e89; }
+
+a:focus, button:focus, input:focus {
+  outline: 3px solid #1d4e89;
+  outline-offset: 2px;
+}
+
+.shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.banner, .alert {
+  border: 1px solid #44403c;
+  padding: 12px 14px;
+  margin: 16px 0;
+}
+
+.alert { background: #fff7ed; }
+
+form {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+label { display: grid; gap: 4px; font-size: 0.95rem; }
+
+input, button, textarea {
+  font: inherit;
+  padding: 8px 10px;
+}
+
+textarea { min-height: 96px; }
+
+button { cursor: pointer; }
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.card {
+  border-top: 1px solid #d6d3d1;
+  padding: 12px 0;
+}
