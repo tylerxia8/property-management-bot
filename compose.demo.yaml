@@ -1,0 +1,104 @@
+# Isolated fixture demo. Postgres is not published. The web port is loopback only.
+name: grok-property-sample
+
+services:
+  db:
+    image: postgres:16.10-bookworm
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [sample]
+    restart: unless-stopped
+
+  bootstrap:
+    image: postgres:16.10-bookworm
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGHOST: db
+      PGUSER: postgres
+      GROK_APP_PASSWORD: ${GROK_APP_PASSWORD}
+      GROK_MIGRATOR_PASSWORD: ${GROK_MIGRATOR_PASSWORD}
+    volumes:
+      - ./apps/api/scripts/bootstrap_demo_sample.sql:/bootstrap.sql:ro
+    entrypoint: ["bash", "-eu", "-c"]
+    command:
+      - >-
+        psql -d postgres -v ON_ERROR_STOP=1
+        -v app_password="$$GROK_APP_PASSWORD"
+        -v migrator_password="$$GROK_MIGRATOR_PASSWORD"
+        -f /bootstrap.sql
+    networks: [sample]
+    restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: test
+      DEMO_FIXTURE: sample
+      DATABASE_URL: postgresql+psycopg://grok_app:${GROK_APP_PASSWORD}@db:5432/grok_demo_sample
+      MIGRATION_DATABASE_URL: postgresql+psycopg://grok_migrator:${GROK_MIGRATOR_PASSWORD}@db:5432/grok_demo_sample
+      SESSION_SECRET: ${SESSION_SECRET}
+      CONTACT_ENCRYPTION_KEY: ${CONTACT_ENCRYPTION_KEY}
+      PAYMENT_SIMULATOR: unset
+      MEDIA_SCANNER: unset
+      WEBHOOK_SECRET: ""
+      STEP_UP_MAX_AGE_SECONDS: "0"
+      APPROVAL_TTL_HOURS: "0"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [sample]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [sample]
+    restart: unless-stopped
+
+networks:
+  sample:
+    name: grok-property-sample-net
+
+volumes:
+  pg:
+    name: grok-property-sample-pg
