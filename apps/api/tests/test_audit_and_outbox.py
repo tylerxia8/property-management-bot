@@ -17,10 +17,15 @@ from tests.support import PROPERTY, bearer, login, seed_member
 
 def test_trigger_redacts_sensitive_keys_and_audit_is_append_only(client, app, migrator_engine):
     org_id = uuid4()
+    user_id = uuid4()
     with migrator_engine.begin() as conn:
-        conn.execute(
-            text("INSERT INTO organizations (id, organization_id, name) VALUES (:id, :id, 'Audit')"),
-            {"id": org_id},
+        seed_member(
+            conn,
+            org_id=org_id,
+            user_id=user_id,
+            subject="audit@example.test",
+            password="local-admin-password",
+            roles=["organization_administrator"],
         )
     payload = {key: "raw-value" for key in SENSITIVE_KEYS}
     payload["name"] = "kept"
@@ -28,7 +33,7 @@ def test_trigger_redacts_sensitive_keys_and_audit_is_append_only(client, app, mi
     assert redact({"email": "a@b.test", "name": "kept"}) == {"email": "[REDACTED]", "name": "kept"}
     session = Session(app.state.engine)
     with session.begin():
-        set_tenant(session, org_id, None)
+        set_tenant(session, org_id, user_id)
         session.execute(
             text(
                 """
@@ -43,7 +48,10 @@ def test_trigger_redacts_sensitive_keys_and_audit_is_append_only(client, app, mi
             {"id": uuid4(), "organization_id": org_id, "after_state": json.dumps(payload)},
         )
     with app.state.engine.begin() as conn:
-        set_local = conn.execute(text("SELECT set_config('app.organization_id', :org, true)"), {"org": str(org_id)})
+        set_local = conn.execute(
+            text("SELECT set_config('app.organization_id', :org, true), set_config('app.actor_id', :actor, true)"),
+            {"org": str(org_id), "actor": str(user_id)},
+        )
         assert set_local is not None
         stored = conn.execute(text("SELECT after_state FROM audit_events")).scalar()
     assert stored["name"] == "kept"
@@ -60,7 +68,10 @@ def test_trigger_redacts_sensitive_keys_and_audit_is_append_only(client, app, mi
             conn.execute(text("DELETE FROM audit_events"))
     with pytest.raises(DBAPIError):
         with app.state.engine.begin() as conn:
-            conn.execute(text("SELECT set_config('app.organization_id', :org, true)"), {"org": str(org_id)})
+            conn.execute(
+                text("SELECT set_config('app.organization_id', :org, true), set_config('app.actor_id', :actor, true)"),
+                {"org": str(org_id), "actor": str(user_id)},
+            )
             conn.execute(text("UPDATE audit_events SET reason = 'no'"))
 
 

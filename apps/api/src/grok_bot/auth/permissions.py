@@ -24,6 +24,8 @@ ACCOUNTING_OPERATIONS = frozenset(
         "journals.reverse",
         "invoices.submit",
         "reserves.apply",
+        "distributions.draft",
+        "statements.issue",
     }
 )
 ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
@@ -49,13 +51,15 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             "tours.manage",
             "invitations.write",
             "dispositions.write",
+            "distributions.approve",
+            "distributions.export",
         }
     )
     | ACCOUNTING_READ,
     "accounting_staff": frozenset({"properties.read", "units.read"})
     | ACCOUNTING_READ
     | ACCOUNTING_OPERATIONS,
-    "owner": frozenset(),
+    "owner": frozenset({"statements.read"}),
     "tenant": frozenset({"maintenance.report"}),
     "prospect": frozenset({"prospects.own", "tours.request"}),
     "contractor": frozenset({"maintenance.respond"}),

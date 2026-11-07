@@ -2,7 +2,7 @@
 
 PRD §17 phase 4: listing inquiry, typed intake, a reviewed policy evaluator, human review, and calendar holds. The exit bar is the PRO suite, with no pre-tour formal screening and no automated final housing decision.
 
-Phase 5 statements, distribution approval, export, and settlement evidence stay unbuilt.
+Phase 5 statements, distribution approval, export, and simulator settlement evidence are in `docs/PHASE5_SCOPE.md`. Provider submission stays disabled.
 
 ## In this milestone
 

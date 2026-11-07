@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest==9.2.0"]
+test = ["hypothesis==6.151.10", "pytest==9.2.0"]
 
 [build-system]
 requires = ["setuptools>=75"]

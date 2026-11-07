@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://127.0.0.1:3000"
     local_token_ttl_seconds: int = Field(default=8 * 60 * 60)
     allow_fixture_ledger_settlement: bool = False
+    payment_simulator: str = "unset"
+    step_up_max_age_seconds: int = 0
     media_scanner: str = "unset"
     media_root: str = "var/media"
 
@@ -59,7 +61,11 @@ class Settings(BaseSettings):
 
     @property
     def fixture_ledger_settlement_allowed(self) -> bool:
-        return self.allows_local_auth and self.allow_fixture_ledger_settlement
+        return False
+
+    @property
+    def payment_simulator_enabled(self) -> bool:
+        return self.allows_local_auth and self.payment_simulator == "enabled"
 
     @property
     def fixture_media_scanner_allowed(self) -> bool:

@@ -31,3 +31,7 @@ The flag defaults to false. Setting it in production does not enable the routes.
 ## Consequences
 
 Phase 5 must add snapshot approval before these journals can run without the fixture flag. Until then, a normal manager token cannot reserve a distribution or clear a payable.
+
+## Phase 5 update
+
+ADR 0010 supersedes the fixture flag. `fixture_ledger_settlement_allowed` is always false, including in development and test, so the four routes stay `409 APPROVAL_CONTRACT_REQUIRED` even when the flag is set. A payable clears only inside an approved distribution item while `payment_simulator=enabled` in development or test. That path records `simulator=true` and is not a bank transfer. Ordinary dev usage of the old routes does not clear cash.

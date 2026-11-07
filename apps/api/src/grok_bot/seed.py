@@ -23,6 +23,15 @@ E2E_LISTING = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae")
 E2E_RESOURCE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf")
 E2E_POLICY = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab0")
 E2E_SCHEDULE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab1")
+E2E_OWNER = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab2")
+E2E_OTHER_OWNER = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab3")
+E2E_OWNER_PARTY = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab4")
+E2E_OTHER_PARTY = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab5")
+E2E_BANK = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab6")
+E2E_LOT = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab7")
+E2E_FIXTURE_SOURCE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab8")
+# Browser fixture only. Not an opening balance, a fee, or a production distribution rule.
+E2E_FIXTURE_CENTS = 25_000
 
 
 def seed_e2e(migration_database_url: str, app_env: str) -> None:
@@ -190,7 +199,111 @@ def seed_e2e(migration_database_url: str, app_env: str) -> None:
             ),
             {"id": E2E_RESOURCE, "organization_id": E2E_ORG, "property_id": E2E_PROPERTY},
         )
+        _user(conn, E2E_OWNER, "Olive Owner", "owner@example.test", "local-owner-password")
+        _user(conn, E2E_OTHER_OWNER, "Owen Other", "other-owner@example.test", "local-owner-password")
+        _grant(conn, E2E_OWNER, "owner")
+        _grant(conn, E2E_OTHER_OWNER, "owner")
+        conn.execute(
+            text(
+                """
+                INSERT INTO parties (id, organization_id, display_name, kind)
+                VALUES (:owner_id, :organization_id, 'Elm Owner', 'person'),
+                       (:other_id, :organization_id, 'Other Owner', 'person')
+                """
+            ),
+            {"owner_id": E2E_OWNER_PARTY, "other_id": E2E_OTHER_PARTY, "organization_id": E2E_ORG},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO owner_links (id, organization_id, user_id, party_id)
+                VALUES (:owner_link, :organization_id, :owner_user, :owner_party),
+                       (:other_link, :organization_id, :other_user, :other_party)
+                """
+            ),
+            {
+                "owner_link": UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab9"),
+                "other_link": UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaba"),
+                "organization_id": E2E_ORG,
+                "owner_user": E2E_OWNER,
+                "owner_party": E2E_OWNER_PARTY,
+                "other_user": E2E_OTHER_OWNER,
+                "other_party": E2E_OTHER_PARTY,
+            },
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO bank_accounts (id, organization_id, display_name, masked_label)
+                VALUES (:id, :organization_id, 'Fixture trust', '****1000')
+                """
+            ),
+            {"id": E2E_BANK, "organization_id": E2E_ORG},
+        )
+    _seed_browser_fixture(engine)
     engine.dispose()
+
+
+def _seed_browser_fixture(engine) -> None:
+    """Post one labeled cash-and-owner pair so the browser can draft a batch.
+
+    The amount is a fixture for the approval and export screens. It is not an
+    opening balance and it does not settle anything.
+    """
+    from datetime import date
+
+    from sqlalchemy.orm import Session
+
+    from grok_bot.db import set_tenant
+    from grok_bot.domain.accounting import _line, _owner_line, _post
+    from grok_bot.domain.distributions import issue_statement
+
+    with Session(engine) as session:
+        set_tenant(session, E2E_ORG, E2E_ACCOUNTING)
+        session.execute(text("SELECT app_ensure_proposed_chart(:organization_id)"), {"organization_id": E2E_ORG})
+        source = {"property_id": E2E_PROPERTY, "lease_id": None}
+        _post(
+            session,
+            E2E_ORG,
+            "FIXTURE_BROWSER_AVAILABLE",
+            E2E_FIXTURE_SOURCE,
+            date(2026, 11, 1),
+            [
+                _line("1030", "DEBIT", E2E_FIXTURE_CENTS, source, "RENT", E2E_BANK),
+                _owner_line("2020", "CREDIT", E2E_FIXTURE_CENTS, source, E2E_OWNER_PARTY),
+            ],
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO funding_lots (
+                  id, organization_id, property_id, bank_account_id, purpose,
+                  amount_cents, source_type, source_id
+                ) VALUES (
+                  :id, :organization_id, :property_id, :bank_account_id, 'RENT',
+                  :amount_cents, 'FIXTURE_BROWSER', :source_id
+                )
+                """
+            ),
+            {
+                "id": E2E_LOT,
+                "organization_id": E2E_ORG,
+                "property_id": E2E_PROPERTY,
+                "bank_account_id": E2E_BANK,
+                "amount_cents": E2E_FIXTURE_CENTS,
+                "source_id": E2E_FIXTURE_SOURCE,
+            },
+        )
+        issue_statement(
+            session,
+            E2E_ORG,
+            E2E_PROPERTY,
+            E2E_OWNER_PARTY,
+            date(2026, 11, 1),
+            date(2026, 11, 30),
+            "Browser fixture snapshot. Not a bank statement.",
+        )
+        session.commit()
 
 
 def _user(conn, user_id: UUID, display_name: str, subject: str, password: str) -> None:

@@ -31,7 +31,7 @@ sudo -u postgres psql -d postgres -v ON_ERROR_STOP=1 -f "$API/scripts/bootstrap_
 
 (
   cd "$API"
-  .venv/bin/uvicorn grok_bot.main:app --host 127.0.0.1 --port 8000
+  STEP_UP_MAX_AGE_SECONDS=900 .venv/bin/uvicorn grok_bot.main:app --host 127.0.0.1 --port 8000
 ) >"$EVIDENCE/m0-api-server.txt" 2>&1 &
 API_PID=$!
 cleanup() {
@@ -71,4 +71,10 @@ if [[ -f "$WEB/test-results/prequalification-hold.png" ]]; then
 fi
 if [[ -f "$WEB/test-results/recorded-check.png" ]]; then
   cp "$WEB/test-results/recorded-check.png" "$EVIDENCE/recorded-check.png"
+fi
+if [[ -f "$WEB/test-results/distribution-export.png" ]]; then
+  cp "$WEB/test-results/distribution-export.png" "$EVIDENCE/distribution-export.png"
+fi
+if [[ -f "$WEB/test-results/owner-statement.png" ]]; then
+  cp "$WEB/test-results/owner-statement.png" "$EVIDENCE/owner-statement.png"
 fi

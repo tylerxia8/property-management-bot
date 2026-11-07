@@ -1,7 +1,9 @@
 from sqlalchemy import create_engine, text
 
+from uuid import UUID, uuid4
+
 from grok_bot.migrate import downgrade, upgrade
-from tests.support import database_url, recreate_database
+from tests.support import database_url, recreate_database, seed_member
 
 
 def test_migration_up_down_up(cluster):
@@ -37,9 +39,29 @@ def test_migration_up_down_up(cluster):
             )
         )
         conn.commit()
+        user_id = uuid4()
+        seed_member(
+            conn,
+            org_id=UUID("11111111-1111-4111-8111-111111111111"),
+            user_id=user_id,
+            subject="after@example.test",
+            password="local-admin-password",
+            roles=["organization_administrator"],
+        )
+        conn.commit()
     app = create_engine(app_url)
     with app.begin() as conn:
-        conn.execute(text("SELECT set_config('app.organization_id', '11111111-1111-4111-8111-111111111111', true)"))
+        conn.execute(
+            text("SELECT set_config('app.organization_id', '11111111-1111-4111-8111-111111111111', true)")
+        )
+        assert conn.execute(text("SELECT count(*) FROM organizations")).scalar() == 0
+        conn.execute(
+            text(
+                "SELECT set_config('app.organization_id', '11111111-1111-4111-8111-111111111111', true), "
+                "set_config('app.actor_id', :actor, true)"
+            ),
+            {"actor": str(user_id)},
+        )
         seen = conn.execute(text("SELECT name FROM organizations")).scalar()
         assert seen == "After upgrade"
     app.dispose()

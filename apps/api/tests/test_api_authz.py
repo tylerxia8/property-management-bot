@@ -317,5 +317,7 @@ def test_openapi_lists_foundation_routes(client, app):
     paths = document.json()["paths"]
     assert "/v1/properties" in paths
     assert "/v1/me" in paths
-    assert "/v1/distribution-batches" not in paths
+    assert "/v1/distribution-batches" in paths
+    assert "/v1/distribution-batches/{batch_id}/submit" in paths
+    assert "/v1/statements" in paths
     assert app.state.engine.dialect.name == "postgresql"

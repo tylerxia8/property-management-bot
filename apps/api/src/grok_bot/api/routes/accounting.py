@@ -417,12 +417,12 @@ def post_approve(invoice_id: UUID, body: PostingDateBody, principal: Principal =
 
 
 def require_fixture_ledger_settlement(request: Request) -> None:
-    if not request.app.state.settings.fixture_ledger_settlement_allowed:
-        problem(
-            409,
-            "APPROVAL_CONTRACT_REQUIRED",
-            "Reserving a distribution or clearing a payable needs an authenticated approval snapshot. That contract is not implemented, so this fixture path is disabled.",
-        )
+    del request
+    problem(
+        409,
+        "APPROVAL_CONTRACT_REQUIRED",
+        "Clearing a payable requires an approved distribution snapshot. The fixture settlement flag does not bypass that.",
+    )
 
 
 @router.post("/properties/{property_id}/distribution-declarations")

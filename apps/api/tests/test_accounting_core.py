@@ -38,7 +38,7 @@ def test_fin_01_unverified_check_is_not_distributable(client, migrator_engine):
     assert _owner_unrestricted(balances) == {}
 
 
-def test_fin_02_worked_example_exact_cents(client, migrator_engine, fixture_settlement):
+def test_fin_02_worked_example_exact_cents(client, migrator_engine, simulator):
     world = _world(client, migrator_engine, fee_numerator=8, fee_denominator=100, reserve_target=80_000)
     for owner_id, amount in ((world["owner_a"], 30_000), (world["owner_b"], 20_000)):
         opened = client.post(
@@ -84,33 +84,48 @@ def test_fin_02_worked_example_exact_cents(client, migrator_engine, fixture_sett
     assert owners[world["owner_b"]]["reserve_cents"] == 32_000
     assert _code(balances, "2050") == 32_000
     assert _code(balances, "2040") == 45_000
-    declared = client.post(
-        f"/v1/properties/{world['property_id']}/distribution-declarations",
-        headers=world["manager"],
-        json={"posting_date": "2026-11-22"},
+    management = client.post(
+        "/v1/parties",
+        headers={**world["accounting"], "Idempotency-Key": "mgmt-fin02"},
+        json={"display_name": "Management company", "kind": "company"},
+    ).json()["id"]
+    for party in (world["owner_a"], world["owner_b"], world["contractor_id"], management):
+        assert client.post(
+            "/v1/payee-destinations",
+            headers=world["accounting"],
+            json={"party_id": party, "masked_label": "****1000"},
+        ).status_code == 201
+    drafted = client.post(
+        "/v1/distribution-batches",
+        headers=world["accounting"],
+        json={"property_id": world["property_id"], "as_of": "2026-11-22", "management_party_id": management},
     )
-    assert declared.status_code == 200, declared.text
-    amounts = sorted(item["amount_cents"] for item in declared.json()["declarations"])
-    assert amounts == [117_200, 175_800]
-    settled = client.post(
-        f"/v1/invoices/{invoice['id']}/simulated-settlement",
+    assert drafted.status_code == 201, drafted.text
+    owner_amounts = sorted(item["amount_cents"] for item in drafted.json()["items"] if item["kind"] == "OWNER")
+    assert owner_amounts == [117_200, 175_800]
+    validated = client.post(f"/v1/distribution-batches/{drafted.json()['id']}/validate", headers=world["accounting"])
+    assert validated.status_code == 200, validated.text
+    assert client.post(
+        "/v1/auth/local/step-up",
         headers=world["manager"],
-        json={"posting_date": "2026-11-23"},
+        json={"subject": world["manager_subject"], "password": world["manager_password"]},
+    ).status_code == 200
+    approved = client.post(
+        f"/v1/distribution-batches/{drafted.json()['id']}/approve",
+        headers=world["manager"],
+        json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Reviewed the worked example", "approval_ttl_hours": 24},
+    )
+    assert approved.status_code == 200, approved.text
+    settled = client.post(
+        f"/v1/distribution-batches/{drafted.json()['id']}/submit",
+        headers=world["manager"],
+        json={"posting_date": "2026-11-23", "scripts": {}},
     )
     assert settled.status_code == 200, settled.text
-    fee = client.post(
-        "/v1/fee-settlements/simulated",
-        headers=world["manager"],
-        json={"property_id": world["property_id"], "amount_cents": 32_000, "posting_date": "2026-11-23"},
-    )
-    assert fee.status_code == 200, fee.text
-    for item in declared.json()["declarations"]:
-        paid = client.post(
-            f"/v1/distribution-declarations/{item['id']}/simulated-settlement",
-            headers=world["manager"],
-            json={"posting_date": "2026-11-23"},
-        )
-        assert paid.status_code == 200, paid.text
+    assert settled.json()["status"] == "SETTLED"
+    assert settled.json()["simulator"] is True
+    assert settled.json()["bank_contacted"] is False
+    del invoice
     balances = _balances(client, world)
     assert _code(balances, "1030") == 80_000
     assert _code(balances, "2030") == 80_000
@@ -250,7 +265,7 @@ def test_fin_11_database_rejects_bad_journals(client, migrator_engine, app):
             conn.execute(text("INSERT INTO journal_lines (id, organization_id, journal_id, account_id, side, amount_cents, currency) VALUES (:id, :org, :id, :id, 'DEBIT', 1, 'USD')"), {"id": uuid4(), "org": world["org_id"]})
 
 
-def test_fin_19_invoice_deficit_blocks_settlement_not_accrual(client, migrator_engine, fixture_settlement):
+def test_fin_19_invoice_deficit_blocks_settlement_not_accrual(client, migrator_engine):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0)
     invoice = _invoice(client, world, 20_000, "TOO-BIG")
     approved = client.post(
@@ -262,16 +277,23 @@ def test_fin_19_invoice_deficit_blocks_settlement_not_accrual(client, migrator_e
     balances = _balances(client, world)
     assert _code(balances, "2040") == 20_000
     assert sum(item["unrestricted_cents"] for item in balances["owners"]) == -20_000
-    blocked = client.post(
-        f"/v1/invoices/{invoice['id']}/simulated-settlement",
-        headers=world["manager"],
-        json={"posting_date": "2026-11-21"},
+    assert client.post(
+        "/v1/payee-destinations",
+        headers=world["accounting"],
+        json={"party_id": world["contractor_id"], "masked_label": "****1000"},
+    ).status_code == 201
+    drafted = client.post(
+        "/v1/distribution-batches",
+        headers=world["accounting"],
+        json={"property_id": world["property_id"], "as_of": "2026-11-21", "management_party_id": None},
     )
+    assert drafted.status_code == 201, drafted.text
+    blocked = client.post(f"/v1/distribution-batches/{drafted.json()['id']}/validate", headers=world["accounting"])
     assert blocked.status_code == 409
     assert blocked.json()["error"]["code"] == "INSUFFICIENT_FUNDS"
 
 
-def test_fin_06_other_property_cash_cannot_fund_payment(client, migrator_engine, fixture_settlement):
+def test_fin_06_other_property_cash_cannot_fund_payment(client, migrator_engine):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0)
     _flow_available(client, world, 10_000)
     other = client.post(
@@ -307,13 +329,21 @@ def test_fin_06_other_property_cash_cannot_fund_payment(client, migrator_engine,
     _flow_available(client, other_world, 1_000_000)
     invoice = _invoice(client, world, 20_000, "CROSS")
     client.post(f"/v1/invoices/{invoice['id']}/approve", headers=world["manager"], json={"posting_date": "2026-11-20"})
-    blocked = client.post(
-        f"/v1/invoices/{invoice['id']}/simulated-settlement",
-        headers=world["manager"],
-        json={"posting_date": "2026-11-21"},
+    assert client.post(
+        "/v1/payee-destinations",
+        headers=world["accounting"],
+        json={"party_id": world["contractor_id"], "masked_label": "****2000"},
+    ).status_code == 201
+    drafted = client.post(
+        "/v1/distribution-batches",
+        headers=world["accounting"],
+        json={"property_id": world["property_id"], "as_of": "2026-11-21", "management_party_id": None},
     )
+    assert drafted.status_code == 201, drafted.text
+    blocked = client.post(f"/v1/distribution-batches/{drafted.json()['id']}/validate", headers=world["accounting"])
     assert blocked.status_code == 409
     assert blocked.json()["error"]["code"] == "INSUFFICIENT_FUNDS"
+    assert _code(_balances(client, other_world), "1030") == 1_000_000
 
 
 def test_invoice_approval_posts_once_and_ai_cannot_post(client, migrator_engine):
@@ -335,8 +365,13 @@ def test_invoice_approval_posts_once_and_ai_cannot_post(client, migrator_engine)
         json=_receipt_body(world, 100),
     )
     assert denied.status_code == 403
-    submit = client.post("/v1/distribution-batches/00000000-0000-4000-8000-00000000abcd/submit", headers=world["manager"])
-    assert submit.status_code == 404
+    submit = client.post(
+        "/v1/distribution-batches/00000000-0000-4000-8000-00000000abcd/submit",
+        headers=world["manager"],
+        json={"posting_date": "2026-11-23", "scripts": {}},
+    )
+    assert submit.status_code == 409
+    assert submit.json()["error"]["code"] == "PROVIDER_SUBMISSION_DISABLED"
 
 
 def test_fin_17_later_ownership_does_not_rewrite_posted_allocation(client, migrator_engine):
@@ -390,7 +425,10 @@ def test_fin_17_later_ownership_does_not_rewrite_posted_allocation(client, migra
 def test_fin_13_deficit_limits_distribution_candidate(client, migrator_engine, app):
     world = _world(client, migrator_engine, fee_numerator=8, fee_denominator=100, reserve_target=10_000, single_owner=True)
     with app.state.engine.begin() as conn:
-        conn.execute(text("SELECT set_config('app.organization_id', :org, true)"), {"org": world["org_id"]})
+        conn.execute(
+            text("SELECT set_config('app.organization_id', :org, true), set_config('app.actor_id', :actor, true)"),
+            {"org": world["org_id"], "actor": str(world["accounting_id"])},
+        )
         conn.execute(
             text(
                 """
@@ -488,6 +526,9 @@ def _world(client, migrator_engine, *, fee_numerator=0, fee_denominator=1, reser
         "admin": admin,
         "accounting": accounting,
         "manager": manager,
+        "manager_subject": f"mgr-{manager_id.hex[:8]}@example.test",
+        "manager_password": "local-manager-password",
+        "accounting_id": accounting_id,
         "ai": ai,
         "property_id": property_id,
         "unit_id": unit_id,

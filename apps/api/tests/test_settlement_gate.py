@@ -6,7 +6,7 @@ from tests.support import CONTACT_KEY, SESSION_SECRET, database_url
 from tests.test_accounting_core import _balances, _code, _invoice, _world
 
 
-def test_manager_cannot_clear_payable_without_approval_contract(client, migrator_engine):
+def test_manager_cannot_clear_payable_without_approval_contract(client, migrator_engine, fixture_settlement):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0)
     invoice = _invoice(client, world, 4_000, "GATE")
     approved = client.post(

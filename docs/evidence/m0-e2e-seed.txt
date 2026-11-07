@@ -1,3 +1,4 @@
 INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
 INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0004_phase4_prospects -> 0005_phase5_distributions, Phase 5 fail-closed actor policies, distributions, and statements.
 alembic upgrade head and grok_bot.seed exited 0

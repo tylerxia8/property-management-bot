@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from grok_bot.api.routes.accounting import router as accounting_router
 from grok_bot.api.routes.auth import router as auth_router
+from grok_bot.api.routes.distributions import router as distributions_router
 from grok_bot.api.routes.health import router as health_router
 from grok_bot.api.routes.maintenance import router as maintenance_router
 from grok_bot.api.routes.me import router as me_router
@@ -42,6 +43,7 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(accounting_router, prefix="/v1")
     app.include_router(maintenance_router, prefix="/v1")
     app.include_router(prospects_router, prefix="/v1")
+    app.include_router(distributions_router, prefix="/v1")
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):

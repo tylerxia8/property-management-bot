@@ -46,6 +46,18 @@ def app(cluster):
 
 
 @pytest.fixture
+def simulator(app):
+    settings = app.state.settings
+    previous_simulator = settings.payment_simulator
+    previous_age = settings.step_up_max_age_seconds
+    settings.payment_simulator = "enabled"
+    settings.step_up_max_age_seconds = 900
+    yield
+    settings.payment_simulator = previous_simulator
+    settings.step_up_max_age_seconds = previous_age
+
+
+@pytest.fixture
 def fixture_settlement(app):
     settings = app.state.settings
     previous = settings.allow_fixture_ledger_settlement

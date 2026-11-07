@@ -38,6 +38,15 @@ Two more flags fail closed the same way:
 
 The evidence script does not set either flag, so the browser path does not clear a payable and does not mark an upload ready.
 
+Phase 5 adds two more settings:
+
+- `PAYMENT_SIMULATOR=enabled` is accepted only when `APP_ENV` is development or test. It lets an approved distribution item post a simulator settlement journal. The payment event is marked simulator. It is not a bank transfer. Unset, including in the evidence script, `POST /distribution-batches/{id}/submit` returns `409 PROVIDER_SUBMISSION_DISABLED`.
+- `STEP_UP_MAX_AGE_SECONDS` defaults to 0. Approval then returns `409 CONFIGURATION_REQUIRED`. The evidence API process sets it to 900 so the browser can record a dev/test password step-up. That step-up is not production MFA, and the route is not mounted when local auth is off.
+
+`grok_app` with only `app.organization_id` set reads no tenant rows. Checkout clears `app.actor_id`. Journal posting still uses `grok_posting`. Alembic still uses `grok_migrator`.
+
+The e2e seed adds two owner logins, `owner@example.test` and `other-owner@example.test`, both with password `local-owner-password`. It also posts a labeled 25,000-cent fixture so the distribution screen has one owner item. That amount is not an opening balance or a fee rule. The seeded statement reason starts with `Browser fixture snapshot`.
+
 Phase 4 does not add a calendar or screening provider. Tour confirmation stays `CONFIRMATION_PENDING` unless a manager records `MANAGER_CONFIRMED`, and `external_event_created` cannot be set true. The e2e seed publishes a screening policy and a tour schedule whose labels start with `fixture:`. Those rows are not production rules. The illustrative income ratio is only inside that fixture policy.
 
 ## Web

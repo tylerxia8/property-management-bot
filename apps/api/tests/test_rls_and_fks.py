@@ -5,7 +5,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from grok_bot.api.app import create_app
-from tests.support import settings_for
+from grok_bot.db import set_tenant
+from tests.support import seed_member, settings_for
 
 
 def test_runtime_role_is_not_owner_and_cannot_bypass(client, app):
@@ -52,9 +53,16 @@ def test_rls_hides_other_organization_and_empty_context(migrator_engine, app):
                 ),
                 {"id": uuid4(), "organization_id": org_id, "name": name},
             )
+    user_a = uuid4()
+    with migrator_engine.begin() as conn:
+        seed_member(conn, org_id=org_a, user_id=user_a, subject="staff-a@example.test", password="local-admin-password", roles=["property_manager"])
     with app.state.engine.begin() as conn:
         assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 0
-        conn.execute(text("SELECT set_config('app.organization_id', :org, true)"), {"org": str(org_a)})
+        set_tenant(conn, org_a, None)
+        assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 0
+        set_tenant(conn, org_a, uuid4())
+        assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 0
+        set_tenant(conn, org_a, user_a)
         names = {row[0] for row in conn.execute(text("SELECT name FROM properties"))}
         assert names == {"A"}
 

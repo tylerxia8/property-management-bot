@@ -427,7 +427,9 @@ def test_portal_actor_cannot_read_other_people_rows(client, migrator_engine, app
         set_tenant(conn, staff["org_id"], staff["manager_id"])
         assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 1
         set_tenant(conn, staff["org_id"], None)
-        assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 1
+        assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 0
+        set_tenant(conn, staff["org_id"], uuid4())
+        assert conn.execute(text("SELECT count(*) FROM properties")).scalar() == 0
 
 
 def test_no_policy_does_not_invent_a_threshold(client, migrator_engine):

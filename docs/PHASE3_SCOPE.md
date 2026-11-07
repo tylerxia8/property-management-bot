@@ -2,7 +2,7 @@
 
 PRD §17 phase 3: issue playbooks, durable incomplete intake, media, emergencies, contractor scheduling, completion, and invoices. Approved invoices use the phase 2 payable command.
 
-Phase 4 prospects are implemented in `docs/PHASE4_SCOPE.md`. Phase 5 statements and distribution controls stay unbuilt.
+Phase 4 prospects are implemented in `docs/PHASE4_SCOPE.md`. Phase 5 statements and distribution controls are in `docs/PHASE5_SCOPE.md`.
 
 ## In this milestone
 

@@ -13,7 +13,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <a href="#main">Skip to content</a>
         <div className="shell">
           <p className="banner">
-            Local development shell. Money movement and housing decisions are not implemented.
+            Local development shell. Provider submission is disabled.
+            This shell does not make a final housing decision.
             Sign-in on this shell is not production OIDC or MFA.
           </p>
           <main id="main">{children}</main>

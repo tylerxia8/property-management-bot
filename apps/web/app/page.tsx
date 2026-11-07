@@ -13,6 +13,10 @@ export default function HomePage() {
         <Link href="/maintenance">Maintenance</Link>
         {" · "}
         <Link href="/prequalification">Prequalification</Link>
+        {" · "}
+        <Link href="/distributions">Distributions</Link>
+        {" · "}
+        <Link href="/statements">Statements</Link>
       </p>
     </>
   );
