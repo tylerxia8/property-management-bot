@@ -15,3 +15,5 @@ The local implementation includes organization isolation, dev/test authenticatio
 For setup and the demo bundle, see [docs/SETUP.md](docs/SETUP.md) and the [demo instructions](deploy/grok-property-sample/README.md). The [implementation plan](docs/PLAN.md), [local acceptance matrix](docs/ACCEPTANCE.md), and [dependency gates](docs/DEPENDENCY_GATES.md) distinguish implemented behavior from remaining work. Local test evidence is in [docs/evidence](docs/evidence); it does not establish staging acceptance or production readiness.
 
 Business-specific fees, banking providers, landlord agreements, and legally reviewed screening policies remain explicit configuration and production prerequisites.
+
+To present the local fictional-data demo on Windows, start Docker Desktop and double-click `Start-Demo.cmd`. Follow the [demo walkthrough](docs/DEMO_WALKTHROUGH.md). The demo keeps live payments, messaging, and external calendars disabled.

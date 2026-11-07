@@ -557,7 +557,30 @@ def seed_demo(migration_database_url: str, app_env: str, session_secret: str) ->
             {"id": DEMO_BANK, "organization_id": DEMO_ORG},
         )
     _seed_demo_activity(engine, session_secret)
+    ensure_demo_statement(engine, app_env)
     engine.dispose()
+
+
+def ensure_demo_statement(engine, app_env: str = "production") -> None:
+    """Add the owner walkthrough to new or existing fictional demo databases."""
+    if app_env not in {"development", "test"} or engine.url.database != DEMO_DATABASE:
+        raise SystemExit("demo statement refuses every database except grok_demo_sample")
+    from sqlalchemy.orm import Session
+
+    from grok_bot.db import set_tenant
+    from grok_bot.domain.distributions import issue_statement
+
+    with Session(engine) as session:
+        set_tenant(session, DEMO_ORG, DEMO_ACCOUNTING)
+        existing = session.execute(
+            text("SELECT id FROM owner_statements WHERE organization_id = :org AND owner_party_id = :owner LIMIT 1"),
+            {"org": DEMO_ORG, "owner": DEMO_OWNER_PARTY},
+        ).first()
+        if existing is None:
+            issue_statement(session, DEMO_ORG, DEMO_PROPERTY, DEMO_OWNER_PARTY,
+                            date(2026, 11, 1), date(2026, 11, 30),
+                            "Fixture demo snapshot. The recorded check is not available for distribution. Not a bank statement.")
+        session.commit()
 
 
 def _seed_demo_activity(engine, session_secret: str) -> None:

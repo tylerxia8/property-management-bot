@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, setToken } from "../../lib/api";
+import { demoDestinations } from "../../lib/demo";
 
 const DEMO_ROLES = [
   ["property_manager", "Property manager"],
@@ -31,7 +32,7 @@ export default function LoginPage() {
       return;
     }
     setToken(body.token);
-    router.push("/properties");
+    router.push(demoDestinations[role]);
   }
 
   async function onSubmit(event: FormEvent) {

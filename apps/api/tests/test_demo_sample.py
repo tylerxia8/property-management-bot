@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from grok_bot.api.app import create_app
 from grok_bot.migrate import upgrade
-from grok_bot.seed import seed_demo
+from grok_bot.seed import ensure_demo_statement, seed_demo
 from grok_bot.settings import Settings
 from tests.support import CONTACT_KEY, SESSION_SECRET, database_url, psql, recreate_database
 
@@ -75,6 +75,20 @@ def test_sample_database_can_switch_roles_without_a_password():
             accounts = {item["code"]: item["amount_cents"] for item in money.json()["accounts"]}
             assert accounts["1010"] == 180_000
             assert accounts["1030"] == 0
+            # Existing demo installs gain the owner walkthrough without a reset
+            # or duplicate statements, and without changing available funds.
+            from sqlalchemy import create_engine
+            upgrade_engine = create_engine(url)
+            ensure_demo_statement(upgrade_engine, "test")
+            ensure_demo_statement(upgrade_engine, "test")
+            with pytest.raises(SystemExit):
+                ensure_demo_statement(upgrade_engine, "production")
+            upgrade_engine.dispose()
+            owner = demo.post("/v1/demo/session", json={"role": "owner"})
+            statements = demo.get("/v1/statements", headers={"Authorization": f"Bearer {owner.json()['token']}"})
+            assert statements.status_code == 200, statements.text
+            assert len(statements.json()["items"]) == 1
+            assert statements.json()["items"][0]["unrestricted_cents"] == 0
             manager = demo.post("/v1/demo/session", json={"role": "property_manager"})
             switches = demo.get("/v1/kill-switches", headers={"Authorization": f"Bearer {manager.json()['token']}"})
             assert switches.status_code == 200, switches.text

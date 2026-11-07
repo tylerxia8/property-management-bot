@@ -7,7 +7,7 @@ import time
 
 from sqlalchemy import create_engine, text
 
-from grok_bot.seed import seed_demo
+from grok_bot.seed import ensure_demo_statement, seed_demo
 
 
 def _wait() -> None:
@@ -30,9 +30,10 @@ def main() -> None:
     engine = create_engine(url)
     with engine.connect() as conn:
         existing = conn.execute(text("SELECT count(*) FROM organizations")).scalar()
-    engine.dispose()
     if int(existing or 0) == 0:
         seed_demo(url, os.environ.get("APP_ENV", "production"), os.environ["SESSION_SECRET"])
+    ensure_demo_statement(engine, os.environ.get("APP_ENV", "production"))
+    engine.dispose()
     os.execvp(
         sys.executable,
         [sys.executable, "-m", "uvicorn", "grok_bot.main:app", "--host", "0.0.0.0", "--port", "8000"],

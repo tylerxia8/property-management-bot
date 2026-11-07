@@ -29,6 +29,12 @@ export default function PrequalificationPage() {
   const [hold, setHold] = useState<Hold | null>(null);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [moveInDate, setMoveInDate] = useState(() => new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10));
+  const [leaseMonths, setLeaseMonths] = useState("12");
+  const [occupants, setOccupants] = useState("1");
+  const [pets, setPets] = useState(false);
+  const [assistanceAnimal, setAssistanceAnimal] = useState(false);
+  const [rentalHistory, setRentalHistory] = useState("Prior tenancy dates only.");
 
   useEffect(() => {
     setReady(true);
@@ -62,10 +68,10 @@ export default function PrequalificationPage() {
     event.preventDefault();
     if (!prospect) return;
     setError("");
-    const payload: { income_original_cents: number; income_period?: string } = {
+    const payload: { income_original_cents: number; income_period: string | null } = {
       income_original_cents: Number(income),
+      income_period: period || null,
     };
-    if (period) payload.income_period = period;
     const response = await api(`/v1/prospects/${prospect.id}/intake`, {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -83,19 +89,24 @@ export default function PrequalificationPage() {
     event.preventDefault();
     if (!prospect) return;
     setError("");
-    await api(`/v1/prospects/${prospect.id}/intake`, {
+    const saved = await api(`/v1/prospects/${prospect.id}/intake`, {
       method: "PATCH",
       body: JSON.stringify({
-        move_in_date: "2026-12-01",
-        lease_months: 12,
+        move_in_date: moveInDate,
+        lease_months: Number(leaseMonths),
         income_original_cents: Number(income),
-        income_period: period || "monthly",
-        occupant_count: 1,
-        pets_declared: false,
-        assistance_animal_requested: false,
-        rental_history: "Prior tenancy dates only.",
+        income_period: period || null,
+        occupant_count: Number(occupants),
+        pets_declared: pets,
+        assistance_animal_requested: assistanceAnimal,
+        rental_history: rentalHistory,
       }),
     });
+    if (!saved.ok) {
+      const body = await saved.json();
+      setError(body.error?.message ?? "Intake details were not saved; evaluation has not run.");
+      return;
+    }
     const response = await api(`/v1/prospects/${prospect.id}/evaluate`, { method: "POST" });
     const body = await response.json();
     if (!response.ok) {
@@ -189,6 +200,13 @@ export default function PrequalificationPage() {
       {monthly === null && questions.length ? <p>Monthly income was not calculated and was not treated as zero.</p> : null}
       {prospect ? (
         <form onSubmit={evaluate}>
+          <p>Review these example details before evaluating. Income remains self-reported and unverified.</p>
+          <label>Desired move-in date<input type="date" value={moveInDate} onChange={event => setMoveInDate(event.target.value)} required /></label>
+          <label>Lease duration (months)<input type="number" min="1" value={leaseMonths} onChange={event => setLeaseMonths(event.target.value)} required /></label>
+          <label>Occupant count<input type="number" min="1" value={occupants} onChange={event => setOccupants(event.target.value)} required /></label>
+          <label><input type="checkbox" checked={pets} onChange={event => setPets(event.target.checked)} />Pets declared</label>
+          <label><input type="checkbox" checked={assistanceAnimal} onChange={event => setAssistanceAnimal(event.target.checked)} />Request private assistance-animal review</label>
+          <label>Relevant rental history<textarea value={rentalHistory} onChange={event => setRentalHistory(event.target.value)} /></label>
           <button type="submit">Evaluate</button>
         </form>
       ) : null}
