@@ -45,7 +45,7 @@ def test_bundle_zip_omits_secrets_and_caches(tmp_path):
     assert destination.stat().st_size > 1000
 
 
-def test_macos_launcher_keeps_env_and_does_not_reset():
+def test_macos_launcher_keeps_env_and_does_not_reset(tmp_path):
     folder = ROOT / "deploy" / "grok-property-sample"
     start = (folder / "start-macos.sh").read_text(encoding="utf-8")
     stop = (folder / "stop-macos.sh").read_text(encoding="utf-8")
@@ -62,8 +62,10 @@ def test_macos_launcher_keeps_env_and_does_not_reset():
     assert "down -v" not in stop
     for name in ("start-macos.sh", "stop-macos.sh", "reset-macos.sh"):
         subprocess.check_call(["/bin/bash", "-n", str(folder / name)])
+    empty_path = tmp_path / "empty-path"
+    empty_path.mkdir()
     env = os.environ.copy()
-    env["PATH"] = "/bin"
+    env["PATH"] = str(empty_path)
     result = subprocess.run(
         ["/bin/bash", str(folder / "start-macos.sh")],
         env=env,
