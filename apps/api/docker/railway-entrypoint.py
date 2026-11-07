@@ -11,13 +11,16 @@ def main():
     env = os.environ.copy()
     # psql accepts the URL through its environment; never print credentials.
     env["PGDATABASE"] = env.pop("DEMO_BOOTSTRAP_DATABASE_URL")
-    subprocess.run(
+    result = subprocess.run(
         ["psql", "-X", "-v", "ON_ERROR_STOP=1",
          "-v", "app_password=" + env["GROK_APP_PASSWORD"],
          "-v", "migrator_password=" + env["GROK_MIGRATOR_PASSWORD"],
          "-f", "/app/scripts/bootstrap_demo_sample.sql"],
-        env=env, check=True,
+        env=env, check=False,
     )
+    if result.returncode:
+        # CalledProcessError would include the command's password arguments.
+        raise SystemExit("Railway demo database bootstrap failed")
     os.execv(sys.executable, [sys.executable, "/app/docker/entrypoint.py"])
 
 
