@@ -1,0 +1,17 @@
+# Ubuntu 24.04 LTS, dedicated demo server. Paste into DigitalOcean User Data.
+# Then follow docs/HOSTED_DEMO.md to configure the domain and site password.
+#cloud-config
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+  - python3
+  - ufw
+runcmd:
+  - [systemctl, enable, --now, docker]
+  - [ufw, allow, OpenSSH]
+  - [ufw, allow, 80/tcp]
+  - [ufw, allow, 443/tcp]
+  - [ufw, --force, enable]
+  - [git, clone, 'https://github.com/tylerxia8/property-management-bot.git', /opt/property-management-bot]
