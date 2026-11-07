@@ -74,4 +74,6 @@ The browser calls `http://127.0.0.1:8000` unless `NEXT_PUBLIC_API_BASE_URL` is s
 
 ## Evidence command
 
-From the repository root, `scripts/run_m0_evidence.sh` bootstraps roles, runs pytest, builds the web app, and runs Playwright against the API. It writes logs under `docs/evidence/`.
+From the repository root, `scripts/run_m0_evidence.sh` bootstraps roles, runs pytest, builds the web app, typechecks it, and runs Playwright against the API. It writes logs under `docs/evidence/`. The web install uses `npm ci` and `apps/web/package-lock.json`.
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs that suite on pull requests and on pushes to `main`. It installs `apps/api/requirements.lock`, then the local package without fetching newer dependencies. The token permission is `contents: read`. The workflow does not use `pull_request_target`, repository secrets, or a deployment. ADR 0014.

@@ -56,10 +56,11 @@ echo
 
 (
   cd "$WEB"
-  npm install
+  npm ci
   npm run test:unit
   npm run build
-  npx playwright install chromium
+  npx tsc --noEmit
+  npx playwright install --with-deps chromium
   npm run test:e2e
 ) | tee "$EVIDENCE/m0-web.txt"
 

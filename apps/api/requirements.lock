@@ -7,10 +7,10 @@ cffi==2.1.1
 click==8.5.1
 cryptography==50.0.2
 fastapi==0.162.0
--e git+https://github.com/tylerxia8/property-management-bot@85f8615e4ccaccf4b5c33935e6422ad8273024b8#egg=grok_bot_api&subdirectory=apps/api
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
+hypothesis==6.151.10
 idna==3.20
 iniconfig==2.3.1
 Mako==1.4.3
@@ -28,8 +28,11 @@ pydantic_core==2.50.4
 Pygments==2.21.0
 pytest==9.2.0
 python-dotenv==1.2.4
+setuptools==84.2.1
+sortedcontainers==2.4.0
 SQLAlchemy==2.1.8
 starlette==1.10.0
 typing-inspection==0.4.5
 typing_extensions==4.16.0
 uvicorn==0.54.0
+wheel==0.48.0
