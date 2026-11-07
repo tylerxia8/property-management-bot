@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/domain/controls.py
-# hypothesis_version: 6.151.10
-
-[403, 'FORBIDDEN', 'calendar_enabled', 'id', 'messaging_enabled', 'organization_id', 'outbound', 'payment_enabled', 'value']

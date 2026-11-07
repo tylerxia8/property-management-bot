@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/api/success.py
-# hypothesis_version: 6.151.10
-
-[300, 401, 403, 404, 409, 422, '1040', 'ACKNOWLEDGED', 'AGENT', 'ASSIGNED', 'CANCELED', 'CLOSED', 'COMPLETED', 'COMPLETION_REVIEW', 'CONFIRMED', 'Content-Type', 'LOCAL_DEV_PASSWORD', 'NOT_YET_GRANTED', 'QUARANTINED', 'REQUESTED', 'RETURNED', 'SUPPRESSED', 'USD', 'WAITING_APPROVAL', 'bearer', 'disabled', 'forbid', 'local_dev', 'maintenance', 'model', 'ok', 'template']

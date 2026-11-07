@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/api/routes/properties.py
-# hypothesis_version: 6.151.10
-
-[200, 201, '/properties', '/v1/properties', 'ETag', 'Idempotency-Key', 'Idempotency-Status', 'If-Match', 'POST', 'properties.create', 'properties.read', 'properties.update']

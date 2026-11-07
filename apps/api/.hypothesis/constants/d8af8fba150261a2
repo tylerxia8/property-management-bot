@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/domain/alerts.py
-# hypothesis_version: 6.151.10
-
-['FAILED', 'PENDING', 'SUPPRESSED', 'attempt_count', 'attempts', 'available', 'delivered', 'delivered_at', 'fallback_id', 'fallback_of', 'id', 'kind', 'messaging_enabled', 'now', 'organization_id', 'payload', 'processed', 'status']

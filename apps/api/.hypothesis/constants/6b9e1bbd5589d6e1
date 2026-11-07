@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/api/deps.py
-# hypothesis_version: 6.151.10
-
-[200, 401, 403, 422, 428, '"', 'FORBIDDEN', 'Sign-in is required.', 'UNAUTHENTICATED', 'VALIDATION_ERROR', 'W/', 'amr', 'authorization', 'bearer ', 'display_name', 'env', 'id', 'local_dev', 'org', 'organization_id', 'req_missing', 'request_id', 'sub', 'user_id']

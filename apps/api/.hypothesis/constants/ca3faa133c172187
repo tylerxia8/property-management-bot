@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/api/routes/prospects.py
-# hypothesis_version: 6.151.10
-
-[200, 201, 403, 404, 409, '/appointments/holds', '/human-reviews', '/inquiries', '/listings', '/prospects', '/tour-slots', 'FORBIDDEN', 'HUMAN_REVIEW', 'NEEDS_INFORMATION', 'NOT_FOUND', 'Prospect not found.', 'asking_rent_cents', 'disabled', 'disclosure', 'display_label', 'dispositions.write', 'duplicate', 'forbid', 'id', 'invitations.write', 'items', 'model', 'model_adapter', 'organization_id', 'property_id', 'prospects.own', 'prospects.review', 'request_id', 'rules', 'screening.publish', 'tours.manage', 'tours.request']

@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/api/routes/operations.py
-# hypothesis_version: 6.151.10
-
-[403, '/operations/queue', 'FORBIDDEN', 'alerts_sent', 'approved_batches', 'dead_letters', 'delivery_enabled', 'organization_id', 'receipts.read', 'unknown_payments']

@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/scripts/generate_api_types.py
-# hypothesis_version: 6.151.10
-
-['    code: string;', '    message: string;', '  error: {', '  };', '] as const;', 'apps', 'lib', 'paths', 'utf-8', 'web', '};']

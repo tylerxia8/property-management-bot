@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/domain/idempotency.py
-# hypothesis_version: 6.151.10
-
-[409, ',', ':', 'IDEMPOTENCY_CONFLICT', 'body', 'id', 'key', 'method', 'organization_id', 'path', 'request_hash', 'response_body', 'response_status', 'status', 'utf-8']

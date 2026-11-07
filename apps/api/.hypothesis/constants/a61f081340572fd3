@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/api/routes/distributions.py
-# hypothesis_version: 6.151.10
-
-[201, 403, 404, '/owner-links', '/payee-destinations', '/statements', 'FORBIDDEN', 'NOT_FOUND', 'Statement not found.', 'distributions.draft', 'distributions.export', 'forbid', 'id', 'items', 'json', 'organization_id', 'owner_party_id', 'party_id', 'period_end', 'period_start', 'reason', 'request_id', 'snapshot', 'snapshot_hash', 'statements.issue', 'statements.read', 'unrestricted_cents', 'user_id', 'uuid', 'version']

@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/seed.py
-# hypothesis_version: 6.151.10
-
-[2026, 25000, '/', '1030', '2020', 'APP_ENV', 'Ada Admin', 'CREDIT', 'Casey Accounting', 'DEBIT', 'Morgan Manager', 'Olive Owner', 'Owen Other', 'Parker Prospect', 'RENT', 'Taylor Tenant', '__main__', '_dev', '_e2e', '_test', 'accounting_staff', 'admin@example.test', 'amount_cents', 'bank_account_id', 'created_by', 'development', 'display_name', 'id', 'issuer', 'lease_id', 'local-admin-password', 'local-owner-password', 'manager@example.test', 'organization_id', 'other_id', 'other_link', 'other_party', 'other_user', 'owner', 'owner@example.test', 'owner_id', 'owner_link', 'owner_party', 'owner_user', 'password', 'production', 'property_id', 'property_manager', 'prospect', 'reviewed_by', 'role', 'rules', 'source_id', 'subject', 'tenant', 'tenant@example.test', 'test', 'unit_id', 'user_id']

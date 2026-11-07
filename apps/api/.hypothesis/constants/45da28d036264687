@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/redaction.py
-# hypothesis_version: 6.151.10
-
-['[REDACTED]', 'access_token', 'account_number', 'api_key', 'authorization', 'ciphertext', 'contact_value', 'cookie', 'dev_password_hash', 'door_code', 'email', 'encryption_key', 'password', 'phone', 'refresh_token', 'routing_number', 'secret', 'session_secret', 'set-cookie', 'signed_url', 'ssn', 'token']

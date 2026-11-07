@@ -5,6 +5,7 @@ var/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.hypothesis/
 .mypy_cache/
 .ruff_cache/
 *.egg-info/

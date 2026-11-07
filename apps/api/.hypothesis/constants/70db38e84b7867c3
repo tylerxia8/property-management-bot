@@ -1,4 +1,0 @@
-# file: /workspace/apps/api/src/grok_bot/migrate.py
-# hypothesis_version: 6.151.10
-
-['1', 'alembic.ini', 'base', 'head']
