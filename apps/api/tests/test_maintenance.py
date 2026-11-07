@@ -48,6 +48,8 @@ def test_heic_upload_is_converted_and_downloadable(client, migrator_engine, fixt
     with Image.open(BytesIO(content.content)) as image:
         assert image.format == "JPEG"
         assert image.size == (64, 32)
+
+
 CATEGORIES = {
     "leak": "clean or sewage",
     "hvac": "no heat",
