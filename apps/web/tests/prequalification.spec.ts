@@ -10,7 +10,12 @@ test("prospect intake reaches human review and a local tour hold", async ({ page
   await page.getByRole("button", { name: "Start intake" }).click();
   await expect(page.getByText("This is preliminary intake.")).toBeVisible();
   await page.getByLabel("Household income in cents").fill("100000");
+  const saved = page.waitForResponse(
+    (response) => response.url().includes("/intake") && response.request().method() === "PATCH",
+  );
   await page.getByRole("button", { name: "Save income" }).click();
+  const saveResponse = await saved;
+  expect(saveResponse.ok(), await saveResponse.text()).toBeTruthy();
   await expect(page.getByRole("listitem").filter({ hasText: "A missing period is not treated as zero." })).toBeVisible();
   await expect(page.getByText("Monthly income was not calculated and was not treated as zero.")).toBeVisible();
   await page.getByLabel("Income period").fill("monthly");
