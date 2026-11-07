@@ -26,7 +26,8 @@ sudo -u postgres psql -d postgres -v ON_ERROR_STOP=1 -f "$API/scripts/bootstrap_
   cd "$API"
   MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" .venv/bin/alembic upgrade head
   APP_ENV=test MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" .venv/bin/python -m grok_bot.seed
-) | tee "$EVIDENCE/m0-e2e-seed.txt"
+  echo "alembic upgrade head and grok_bot.seed exited 0"
+) 2>&1 | tee "$EVIDENCE/m0-e2e-seed.txt"
 
 (
   cd "$API"
