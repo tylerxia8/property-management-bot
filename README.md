@@ -19,3 +19,5 @@ Business-specific fees, banking providers, landlord agreements, and legally revi
 To present the local fictional-data demo on Windows, start Docker Desktop and double-click `Start-Demo.cmd`. Follow the [demo walkthrough](docs/DEMO_WALKTHROUGH.md). The demo keeps live payments, messaging, and external calendars disabled.
 
 For the password-protected Railway website, deployment and operating instructions are in [Hosted demo](docs/HOSTED_DEMO.md).
+
+See the [open-source comparison](docs/OPEN_SOURCE_REVIEW.md) for adopted listing-matching and HEIC improvements, measured results, and the accounting, scheduling, and conversation platforms reviewed.

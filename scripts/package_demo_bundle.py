@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 INCLUDE = [
     "Start-Demo.cmd",
     "docs/DEMO_WALKTHROUGH.md",
+    "docs/OPEN_SOURCE_REVIEW.md",
+    "docs/licenses",
     "scripts/check_demo.py",
     "compose.demo.yaml",
     "apps/api/Dockerfile",
