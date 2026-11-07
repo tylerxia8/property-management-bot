@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     contact_encryption_key: str
     cors_origins: str = "http://127.0.0.1:3000"
     local_token_ttl_seconds: int = Field(default=8 * 60 * 60)
+    allow_fixture_ledger_settlement: bool = False
+    media_scanner: str = "unset"
+    media_root: str = "var/media"
 
     @field_validator("app_env")
     @classmethod
@@ -53,6 +56,14 @@ class Settings(BaseSettings):
     @property
     def allows_local_auth(self) -> bool:
         return self.app_env in {"development", "test"}
+
+    @property
+    def fixture_ledger_settlement_allowed(self) -> bool:
+        return self.allows_local_auth and self.allow_fixture_ledger_settlement
+
+    @property
+    def fixture_media_scanner_allowed(self) -> bool:
+        return self.allows_local_auth and self.media_scanner == "fixture"
 
     @property
     def contact_key_bytes(self) -> bytes:

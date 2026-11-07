@@ -38,7 +38,7 @@ def test_fin_01_unverified_check_is_not_distributable(client, migrator_engine):
     assert _owner_unrestricted(balances) == {}
 
 
-def test_fin_02_worked_example_exact_cents(client, migrator_engine):
+def test_fin_02_worked_example_exact_cents(client, migrator_engine, fixture_settlement):
     world = _world(client, migrator_engine, fee_numerator=8, fee_denominator=100, reserve_target=80_000)
     for owner_id, amount in ((world["owner_a"], 30_000), (world["owner_b"], 20_000)):
         opened = client.post(
@@ -250,7 +250,7 @@ def test_fin_11_database_rejects_bad_journals(client, migrator_engine, app):
             conn.execute(text("INSERT INTO journal_lines (id, organization_id, journal_id, account_id, side, amount_cents, currency) VALUES (:id, :org, :id, :id, 'DEBIT', 1, 'USD')"), {"id": uuid4(), "org": world["org_id"]})
 
 
-def test_fin_19_invoice_deficit_blocks_settlement_not_accrual(client, migrator_engine):
+def test_fin_19_invoice_deficit_blocks_settlement_not_accrual(client, migrator_engine, fixture_settlement):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0)
     invoice = _invoice(client, world, 20_000, "TOO-BIG")
     approved = client.post(
@@ -271,7 +271,7 @@ def test_fin_19_invoice_deficit_blocks_settlement_not_accrual(client, migrator_e
     assert blocked.json()["error"]["code"] == "INSUFFICIENT_FUNDS"
 
 
-def test_fin_06_other_property_cash_cannot_fund_payment(client, migrator_engine):
+def test_fin_06_other_property_cash_cannot_fund_payment(client, migrator_engine, fixture_settlement):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0)
     _flow_available(client, world, 10_000)
     other = client.post(

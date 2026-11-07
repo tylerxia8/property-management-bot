@@ -63,3 +63,9 @@ echo
 if [[ -f "$WEB/test-results/manager-property.png" ]]; then
   cp "$WEB/test-results/manager-property.png" "$EVIDENCE/manager-property.png"
 fi
+if [[ -f "$WEB/test-results/maintenance-intake.png" ]]; then
+  cp "$WEB/test-results/maintenance-intake.png" "$EVIDENCE/maintenance-intake.png"
+fi
+if [[ -f "$WEB/test-results/recorded-check.png" ]]; then
+  cp "$WEB/test-results/recorded-check.png" "$EVIDENCE/recorded-check.png"
+fi

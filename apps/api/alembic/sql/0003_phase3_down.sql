@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS public.maintenance_appointments;
+DROP TABLE IF EXISTS public.accommodation_notes;
+DROP TABLE IF EXISTS public.entry_secrets;
+DROP TABLE IF EXISTS public.notification_jobs;
+DROP TABLE IF EXISTS public.escalations;
+DROP TABLE IF EXISTS public.escalation_destinations;
+DROP TABLE IF EXISTS public.maintenance_invoice_links;
+DROP TABLE IF EXISTS public.work_orders;
+DROP TABLE IF EXISTS public.assignments;
+DROP TABLE IF EXISTS public.contractor_profiles;
+DROP TABLE IF EXISTS public.media_objects;
+DROP TABLE IF EXISTS public.ticket_messages;
+DROP TABLE IF EXISTS public.intake_fields;
+DROP TABLE IF EXISTS public.maintenance_tickets;
+DROP TABLE IF EXISTS public.ticket_counters;
+DROP TABLE IF EXISTS public.lease_parties;

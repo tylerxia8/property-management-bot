@@ -16,13 +16,13 @@ These are not PRD contradictions. M0 does not enable the capability.
 | Signed fee terms | No fee accrual |
 | Ownership shares and responsibility language | No beneficial allocation |
 | Reserves, spending authority, shortfall priority | No reserve or creditor-priority engine |
-| Named approvers, recipient verification, dual control | No payment approval endpoint |
+| Named approvers, recipient verification, dual control | No payment approval snapshot. ADR 0007 keeps declaration and simulated settlement off unless a dev/test fixture flag is set. Invoice approval still posts one payable and does not clear cash. |
 | Close calendar and retention matrix | No deletion job and no official statement |
 | Reviewed screening and accommodation policy | No automatic preliminary qualification |
 | Post-tour application vendor and adverse action | No consumer-report integration |
 | Marketplace access and communication consent | No external intake or outbound send |
-| Staffed emergency coverage | No unattended maintenance intake |
-| Approved contractors and access rules | No assignment execution |
+| Staffed emergency coverage | Escalation rows can be stored. Without a configured destination the job is `DESTINATION_UNCONFIGURED` and `delivered_at` stays null. Nothing is sent. |
+| Approved contractors and access rules | A manager can assign an approved local profile. There is no external contractor network, and availability does not grant entry. |
 | Languages and accommodation operations | English-preference capture only, later |
 | Media retention and sensitive-access map | No production media store |
 
@@ -38,7 +38,7 @@ These are not PRD contradictions. M0 does not enable the capability.
 | Step-up freshness window | §3 says “recent” without a duration | No step-up endpoint |
 | Statutory North Carolina timing, notice, or deposit administration | §12 says the legal summary is not a legal opinion | No statutory encoder |
 | Unit-command policy if it should differ from properties | Not specified. ADR 0004 records a reversible analogy so the API exists | Analogy only; not described as a confirmed policy |
-| Production malware scanning and KMS | Providers unselected | No media pipeline in M0 |
+| Production malware scanning and KMS | Providers unselected | Local JPEG/PNG/MP4 checks run only when `APP_ENV` is development or test and `MEDIA_SCANNER=fixture`. The scanner name is `fixture-byte-scanner`. Production cannot mark an upload ready with it. HEIC stays unready. |
 | Cookie session and CSRF | Needs the OIDC/session decision | Bearer dev token only, and only in dev/test |
 
 ## M0 items explicitly incomplete
@@ -50,4 +50,4 @@ These are not PRD contradictions. M0 does not enable the capability.
 | Backup restore drill | Not run. |
 | Owner, tenant, and resource-scoped visibility | Portal and resource-scoped grants get no property capability. Relationship tables are not in M0. |
 | Contact and organization HTTP APIs | Tables and encryption exist. §9.2 does not name the routes, so they were not added. |
-| Financial commands and housing decisions | Not implemented. |
+| Financial commands and housing decisions | Phase 2 posts simulated journals. Phase 3 approves a maintenance invoice through that same payable command. No live payment, and no automated housing decision. |

@@ -9,6 +9,8 @@ export default function HomePage() {
         <Link href="/login">Sign in</Link>
         {" · "}
         <Link href="/accounting">Receipts</Link>
+        {" · "}
+        <Link href="/maintenance">Maintenance</Link>
       </p>
     </>
   );

@@ -46,6 +46,27 @@ def app(cluster):
 
 
 @pytest.fixture
+def fixture_settlement(app):
+    settings = app.state.settings
+    previous = settings.allow_fixture_ledger_settlement
+    settings.allow_fixture_ledger_settlement = True
+    yield
+    settings.allow_fixture_ledger_settlement = previous
+
+
+@pytest.fixture
+def fixture_scanner(app, tmp_path):
+    settings = app.state.settings
+    previous_scanner = settings.media_scanner
+    previous_root = settings.media_root
+    settings.media_scanner = "fixture"
+    settings.media_root = str(tmp_path)
+    yield
+    settings.media_scanner = previous_scanner
+    settings.media_root = previous_root
+
+
+@pytest.fixture
 def client(app, migrator_engine):
     with migrator_engine.begin() as conn:
         conn.execute(

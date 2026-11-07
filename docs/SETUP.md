@@ -31,6 +31,13 @@ export CONTACT_ENCRYPTION_KEY="$(python3 -c 'import os,base64; print(base64.b64e
 
 `APP_ENV=production` does not mount local login. Leave production processes without a dev password workflow.
 
+Two more flags fail closed the same way:
+
+- `ALLOW_FIXTURE_LEDGER_SETTLEMENT` defaults to false. Even when true, production ignores it. The declaration and simulated-settlement routes then return `409 APPROVAL_CONTRACT_REQUIRED` and post nothing. See ADR 0007.
+- `MEDIA_SCANNER=fixture` is the only local media checker, and only in development or test. It is not a malware product. Any other value, including in production, leaves uploads rejected with `SCANNER_NOT_CONFIGURED`. `MEDIA_ROOT` is the local quarantine directory. JPEG and PNG use Pillow. Short MP4 and MOV files use `ffmpeg` and `ffprobe` on this machine. HEIC is recognized and left unready.
+
+The evidence script does not set either flag, so the browser path does not clear a payable and does not mark an upload ready.
+
 ## Web
 
 ```bash

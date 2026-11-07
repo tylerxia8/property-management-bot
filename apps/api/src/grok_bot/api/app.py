@@ -10,16 +10,19 @@ from starlette.middleware.cors import CORSMiddleware
 from grok_bot.api.routes.accounting import router as accounting_router
 from grok_bot.api.routes.auth import router as auth_router
 from grok_bot.api.routes.health import router as health_router
+from grok_bot.api.routes.maintenance import router as maintenance_router
 from grok_bot.api.routes.me import router as me_router
 from grok_bot.api.routes.properties import router as properties_router
 from grok_bot.api.routes.units import router as units_router
 from grok_bot.db import build_engine
+from grok_bot.domain.clock import SystemClock
 from grok_bot.settings import Settings
 
 
 def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5) -> FastAPI:
     app = FastAPI(title="Grok Bot API", version="0.1.0")
     app.state.settings = settings
+    app.state.clock = SystemClock()
     app.state.engine = build_engine(settings.database_url, pool_size=pool_size, max_overflow=max_overflow)
     if settings.allows_local_auth:
         app.add_middleware(
@@ -36,6 +39,7 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(properties_router, prefix="/v1")
     app.include_router(units_router, prefix="/v1")
     app.include_router(accounting_router, prefix="/v1")
+    app.include_router(maintenance_router, prefix="/v1")
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
@@ -106,6 +110,10 @@ def _integrity_message(exc: IntegrityError) -> tuple[str, str]:
         return "POSTED_JOURNAL_IMMUTABLE", "Posted journal rows cannot be changed."
     if "ownership weights must total" in text:
         return "OWNERSHIP_WEIGHTS_INVALID", "Ownership weights must total 1000000."
+    if "invoices_number_unique" in text:
+        return "DUPLICATE_INVOICE", "That contractor invoice number is already on file."
+    if "maintenance_appointments_no_overlap" in text:
+        return "APPOINTMENT_CONFLICT", "That unit already has a confirmed appointment in this window."
     return "CONSTRAINT_VIOLATION", "The request conflicts with an existing record."
 
 

@@ -31,7 +31,7 @@ def request_id_of(request: Request) -> str:
     return current
 
 
-def get_principal(request: Request, session: Session = Depends(get_session)) -> Principal:
+def principal_from_request(request: Request, session: Session) -> Principal:
     header = request.headers.get("authorization", "")
     if not header.lower().startswith("bearer "):
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
@@ -86,6 +86,10 @@ def get_principal(request: Request, session: Session = Depends(get_session)) -> 
         roles=tuple(roles),
         auth_method="local_dev",
     )
+
+
+def get_principal(request: Request, session: Session = Depends(get_session)) -> Principal:
+    return principal_from_request(request, session)
 
 
 def require_capability(principal: Principal, capability: str) -> None:

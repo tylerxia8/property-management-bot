@@ -416,26 +416,39 @@ def post_approve(invoice_id: UUID, body: PostingDateBody, principal: Principal =
     return approve_invoice(session, principal.organization_id, invoice_id, body.posting_date)
 
 
+def require_fixture_ledger_settlement(request: Request) -> None:
+    if not request.app.state.settings.fixture_ledger_settlement_allowed:
+        problem(
+            409,
+            "APPROVAL_CONTRACT_REQUIRED",
+            "Reserving a distribution or clearing a payable needs an authenticated approval snapshot. That contract is not implemented, so this fixture path is disabled.",
+        )
+
+
 @router.post("/properties/{property_id}/distribution-declarations")
-def post_declare(property_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_declare(property_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    require_fixture_ledger_settlement(request)
     require_capability(principal, "distributions.declare")
     return declare_distributions(session, principal.organization_id, property_id, body.posting_date)
 
 
 @router.post("/invoices/{invoice_id}/simulated-settlement")
-def post_invoice_settlement(invoice_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_invoice_settlement(invoice_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    require_fixture_ledger_settlement(request)
     require_capability(principal, "settlements.simulate")
     return settle_invoice(session, principal.organization_id, invoice_id, body.posting_date)
 
 
 @router.post("/fee-settlements/simulated")
-def post_fee_settlement(body: FeeSettlementBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_fee_settlement(body: FeeSettlementBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    require_fixture_ledger_settlement(request)
     require_capability(principal, "settlements.simulate")
     return settle_fee(session, principal.organization_id, body.property_id, body.amount_cents, body.posting_date)
 
 
 @router.post("/distribution-declarations/{declaration_id}/simulated-settlement")
-def post_distribution_settlement(declaration_id: UUID, body: PostingDateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_distribution_settlement(declaration_id: UUID, body: PostingDateBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    require_fixture_ledger_settlement(request)
     require_capability(principal, "settlements.simulate")
     return settle_declaration(session, principal.organization_id, declaration_id, body.posting_date)
 

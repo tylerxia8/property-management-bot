@@ -4,16 +4,18 @@ rootdir: /workspace/apps/api
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.16.0
-collected 42 items
+collected 59 items
 
-tests/test_accounting_core.py ..............                             [ 33%]
-tests/test_api_authz.py ..........                                       [ 57%]
-tests/test_api_concurrency.py ..                                         [ 61%]
-tests/test_audit_and_outbox.py ...                                       [ 69%]
-tests/test_auth_fail_closed.py ....                                      [ 78%]
-tests/test_inbox_and_contacts.py ..                                      [ 83%]
-tests/test_migration_cycle.py .                                          [ 85%]
-tests/test_rls_and_fks.py ......                                         [100%]
+tests/test_accounting_core.py ..............                             [ 23%]
+tests/test_api_authz.py ..........                                       [ 40%]
+tests/test_api_concurrency.py ..                                         [ 44%]
+tests/test_audit_and_outbox.py ...                                       [ 49%]
+tests/test_auth_fail_closed.py ....                                      [ 55%]
+tests/test_inbox_and_contacts.py ..                                      [ 59%]
+tests/test_maintenance.py ...............                                [ 84%]
+tests/test_migration_cycle.py .                                          [ 86%]
+tests/test_rls_and_fks.py ......                                         [ 96%]
+tests/test_settlement_gate.py ..                                         [100%]
 
 =============================== warnings summary ===============================
 .venv/lib/python3.12/site-packages/fastapi/testclient.py:1
@@ -21,4 +23,4 @@ tests/test_rls_and_fks.py ......                                         [100%]
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 42 passed, 1 warning in 5.15s =========================
+======================== 59 passed, 1 warning in 9.45s =========================

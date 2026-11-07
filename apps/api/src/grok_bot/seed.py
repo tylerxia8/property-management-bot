@@ -97,6 +97,20 @@ def seed_e2e(migration_database_url: str, app_env: str) -> None:
             ),
             {"id": E2E_LEASE, "organization_id": E2E_ORG, "unit_id": E2E_UNIT},
         )
+        conn.execute(
+            text(
+                """
+                INSERT INTO lease_parties (id, organization_id, lease_id, user_id)
+                VALUES (:id, :organization_id, :lease_id, :user_id)
+                """
+            ),
+            {
+                "id": UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab"),
+                "organization_id": E2E_ORG,
+                "lease_id": E2E_LEASE,
+                "user_id": E2E_TENANT,
+            },
+        )
     engine.dispose()
 
 

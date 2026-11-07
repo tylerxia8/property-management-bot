@@ -39,10 +39,12 @@ form {
 
 label { display: grid; gap: 4px; font-size: 0.95rem; }
 
-input, button {
+input, button, textarea {
   font: inherit;
   padding: 8px 10px;
 }
+
+textarea { min-height: 96px; }
 
 button { cursor: pointer; }
 

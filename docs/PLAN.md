@@ -19,7 +19,7 @@ The task’s coverage list (accounting, prequalification, maintenance) names are
 | 0 | Discovery | Read the specification and record gates | Done |
 | 1 | Phase 1 foundation | M0 auth, RLS, audit, outbox, idempotency, property/unit API, web shell | Implemented on this branch |
 | 2 | Phase 2 accounting core | Immutable journal, receipt through reconciliation, invoice payable posting | Implemented on this branch. See `docs/PHASE2_SCOPE.md` |
-| 3 | Phase 3 maintenance | Intake, media, emergencies, contractor work, invoice approval calling phase 2 | Not started. Depends on phase 2 for the single payable post. |
+| 3 | Phase 3 maintenance | Intake, media, emergencies, contractor work, invoice approval calling phase 2 | Implemented on this branch. See `docs/PHASE3_SCOPE.md`. Payable clearing stays behind ADR 0007. |
 | 4 | Phase 4 prospects and tours | Intake, policy evaluator, human review, scheduling | Not started. Depends on phase 1. PRD places it after maintenance; shared appointment tables should land before both consumers need them, without skipping phase 2. |
 | 5 | Phase 5 statements and distributions | Close, statements, approval snapshots, instruction export, settlement evidence | Not started. Depends on phase 2 and on approved payables from phase 3. |
 | 6 | Phase 6 pilot and optional live payments | Provider sandbox or live adapter | Not started. Blocked by the §18 gates and by the instruction to keep money simulated until the provider and accounting rules are confirmed. |
