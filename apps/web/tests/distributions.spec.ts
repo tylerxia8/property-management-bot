@@ -32,7 +32,11 @@ test("manager export does not settle and owner sees only their statement", async
   await expect(page.getByText("Dev/test step-up recorded. This is not production MFA.")).toBeVisible();
   await expect(page.getByText("This form cannot set it.")).toBeVisible();
   await page.getByLabel("Approval reason").fill("Browser review of the fixture snapshot.");
+  const approval = page.waitForResponse(response =>
+    response.request().method() === "POST" && /\/distribution-batches\/[^/]+\/approve$/.test(response.url()));
   await page.getByRole("button", { name: "Approve snapshot" }).click();
+  const approved = await approval;
+  expect(approved.ok(), await approved.text()).toBeTruthy();
   await expect(page.getByRole("heading", { name: "Batch APPROVED" })).toBeVisible();
   await page.getByRole("button", { name: "Export instructions" }).click();
   await expect(page.getByText("Export settled: false")).toBeVisible();
