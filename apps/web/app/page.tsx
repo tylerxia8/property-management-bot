@@ -11,6 +11,8 @@ export default function HomePage() {
         <Link href="/accounting">Receipts</Link>
         {" · "}
         <Link href="/maintenance">Maintenance</Link>
+        {" · "}
+        <Link href="/prequalification">Prequalification</Link>
       </p>
     </>
   );

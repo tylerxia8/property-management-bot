@@ -13,6 +13,7 @@ from grok_bot.api.routes.health import router as health_router
 from grok_bot.api.routes.maintenance import router as maintenance_router
 from grok_bot.api.routes.me import router as me_router
 from grok_bot.api.routes.properties import router as properties_router
+from grok_bot.api.routes.prospects import router as prospects_router
 from grok_bot.api.routes.units import router as units_router
 from grok_bot.db import build_engine
 from grok_bot.domain.clock import SystemClock
@@ -40,6 +41,7 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(units_router, prefix="/v1")
     app.include_router(accounting_router, prefix="/v1")
     app.include_router(maintenance_router, prefix="/v1")
+    app.include_router(prospects_router, prefix="/v1")
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
@@ -112,6 +114,10 @@ def _integrity_message(exc: IntegrityError) -> tuple[str, str]:
         return "OWNERSHIP_WEIGHTS_INVALID", "Ownership weights must total 1000000."
     if "invoices_number_unique" in text:
         return "DUPLICATE_INVOICE", "That contractor invoice number is already on file."
+    if "tour_appointments_no_overlap" in text:
+        return "SLOT_UNAVAILABLE", "That resource already has an active hold or tour in this window."
+    if "inquiries_provider_message" in text:
+        return "INQUIRY_DUPLICATE", "That provider message is already stored."
     if "maintenance_appointments_no_overlap" in text:
         return "APPOINTMENT_CONFLICT", "That unit already has a confirmed appointment in this window."
     return "CONSTRAINT_VIOLATION", "The request conflicts with an existing record."

@@ -204,7 +204,7 @@ def post_unverified(body: UnverifiedBody, request: Request, session: Session = D
     if payload.get("amr") != "intake_org" or payload.get("env") != "ticket":
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
     organization_id = UUID(payload["org"])
-    set_tenant(session, organization_id, None)
+    set_tenant(session, organization_id, None, access_mode="unverified")
     del body.unit_id, body.phone
     result = create_unverified_ticket(
         session,
@@ -272,7 +272,7 @@ def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Se
     if actor is not None and can_view_ticket(session, organization_id, ticket_id, actor.user_id, actor.roles) is None:
         problem(404, "NOT_FOUND", "Ticket not found.")
     created = request_upload(session, organization_id, ticket_id, body.content_type, body.size_bytes, body.filename, body.sha256)
-    token = _scoped_token(request, organization_id, created["id"], "media_upload")
+    token = _scoped_token(request, organization_id, created["id"], "media_upload", ticket_id)
     return JSONResponse(
         status_code=201,
         content={
@@ -290,7 +290,7 @@ def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Se
 @router.post("/media/{media_id}/bytes")
 async def post_bytes(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session)):
     payload = _media_payload(request, token, media_id, "media_upload")
-    set_tenant(session, UUID(payload["org"]), None)
+    set_tenant(session, UUID(payload["org"]), None, intake_ticket_id=UUID(payload["tid"]), access_mode="intake")
     stored = save_quarantine(session, request.app.state.settings, UUID(payload["org"]), media_id, await request.body())
     stored["request_id"] = request_id_of(request)
     return stored
@@ -319,7 +319,7 @@ def get_download(media_id: UUID, request: Request, principal: Principal = Depend
         problem(404, "NOT_FOUND", "Media not found.")
     if row["status"] != "READY" or not row["derivative_key"]:
         problem(404, "MEDIA_NOT_READY", "This file is not available.")
-    token = _scoped_token(request, principal.organization_id, str(media_id), "media_download")
+    token = _scoped_token(request, principal.organization_id, str(media_id), "media_download", row["ticket_id"])
     return {
         "download_url": f"/v1/media/{media_id}/content?token={token}",
         "expires_in_seconds": 300,
@@ -333,7 +333,7 @@ def get_download(media_id: UUID, request: Request, principal: Principal = Depend
 def get_content(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session)):
     payload = _media_payload(request, token, media_id, "media_download")
     organization_id = UUID(payload["org"])
-    set_tenant(session, organization_id, None)
+    set_tenant(session, organization_id, None, intake_ticket_id=UUID(payload["tid"]), access_mode="intake")
     row = _media(session, organization_id, media_id)
     if row["status"] != "READY" or not row["derivative_key"]:
         problem(404, "MEDIA_NOT_READY", "This file is not available.")
@@ -503,7 +503,7 @@ def _ticket_actor(request: Request, session: Session, ticket_id: UUID):
     payload = _bearer_payload(request)
     if payload.get("amr") == "intake_link" and payload.get("env") == "ticket" and payload.get("sub") == str(ticket_id):
         organization_id = UUID(payload["org"])
-        set_tenant(session, organization_id, None)
+        set_tenant(session, organization_id, None, intake_ticket_id=ticket_id, access_mode="intake")
         return None, organization_id
     principal = principal_from_request(request, session)
     if can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles) is None:
@@ -514,10 +514,10 @@ def _ticket_actor(request: Request, session: Session, ticket_id: UUID):
 def _any_actor(request: Request, session: Session):
     payload = _bearer_payload(request)
     if payload.get("amr") == "intake_link" and payload.get("env") == "ticket":
-        organization_id = UUID(payload["org"])
-        set_tenant(session, organization_id, None)
         if payload.get("sub") is None:
             problem(401, "UNAUTHENTICATED", "Sign-in is required.")
+        organization_id = UUID(payload["org"])
+        set_tenant(session, organization_id, None, intake_ticket_id=UUID(payload["sub"]), access_mode="intake")
         return None, organization_id
     principal = principal_from_request(request, session)
     return principal, principal.organization_id
@@ -538,12 +538,12 @@ def _media_payload(request: Request, token: str, media_id: UUID, amr: str) -> di
         payload = verify_token(token, request.app.state.settings.session_secret)
     except TokenError:
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
-    if payload.get("amr") != amr or payload.get("env") != "ticket" or payload.get("sub") != str(media_id):
+    if payload.get("amr") != amr or payload.get("env") != "ticket" or payload.get("sub") != str(media_id) or not payload.get("tid"):
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
     return payload
 
 
-def _scoped_token(request: Request, organization_id: UUID, subject: str, amr: str) -> str:
+def _scoped_token(request: Request, organization_id: UUID, subject: str, amr: str, ticket_id: UUID) -> str:
     return _sign(
         {
             "amr": amr,
@@ -551,6 +551,7 @@ def _scoped_token(request: Request, organization_id: UUID, subject: str, amr: st
             "exp": int(time.time()) + 300,
             "org": str(organization_id),
             "sub": subject,
+            "tid": str(ticket_id),
             "v": 1,
         },
         request.app.state.settings.session_secret,

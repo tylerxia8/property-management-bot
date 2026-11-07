@@ -44,6 +44,11 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             "maintenance.manage",
             "maintenance.assign",
             "maintenance.acknowledge",
+            "prospects.review",
+            "screening.publish",
+            "tours.manage",
+            "invitations.write",
+            "dispositions.write",
         }
     )
     | ACCOUNTING_READ,
@@ -52,7 +57,7 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     | ACCOUNTING_OPERATIONS,
     "owner": frozenset(),
     "tenant": frozenset({"maintenance.report"}),
-    "prospect": frozenset(),
+    "prospect": frozenset({"prospects.own", "tours.request"}),
     "contractor": frozenset({"maintenance.respond"}),
     "ai_service": frozenset(),
     "worker": frozenset(),

@@ -66,6 +66,9 @@ fi
 if [[ -f "$WEB/test-results/maintenance-intake.png" ]]; then
   cp "$WEB/test-results/maintenance-intake.png" "$EVIDENCE/maintenance-intake.png"
 fi
+if [[ -f "$WEB/test-results/prequalification-hold.png" ]]; then
+  cp "$WEB/test-results/prequalification-hold.png" "$EVIDENCE/prequalification-hold.png"
+fi
 if [[ -f "$WEB/test-results/recorded-check.png" ]]; then
   cp "$WEB/test-results/recorded-check.png" "$EVIDENCE/recorded-check.png"
 fi

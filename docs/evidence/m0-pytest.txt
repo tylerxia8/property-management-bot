@@ -4,17 +4,18 @@ rootdir: /workspace/apps/api
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.16.0
-collected 59 items
+collected 74 items
 
-tests/test_accounting_core.py ..............                             [ 23%]
-tests/test_api_authz.py ..........                                       [ 40%]
-tests/test_api_concurrency.py ..                                         [ 44%]
-tests/test_audit_and_outbox.py ...                                       [ 49%]
-tests/test_auth_fail_closed.py ....                                      [ 55%]
-tests/test_inbox_and_contacts.py ..                                      [ 59%]
-tests/test_maintenance.py ...............                                [ 84%]
-tests/test_migration_cycle.py .                                          [ 86%]
-tests/test_rls_and_fks.py ......                                         [ 96%]
+tests/test_accounting_core.py ..............                             [ 18%]
+tests/test_api_authz.py ..........                                       [ 32%]
+tests/test_api_concurrency.py ..                                         [ 35%]
+tests/test_audit_and_outbox.py ...                                       [ 39%]
+tests/test_auth_fail_closed.py ....                                      [ 44%]
+tests/test_inbox_and_contacts.py ..                                      [ 47%]
+tests/test_maintenance.py ...............                                [ 67%]
+tests/test_migration_cycle.py .                                          [ 68%]
+tests/test_prospects.py ...............                                  [ 89%]
+tests/test_rls_and_fks.py ......                                         [ 97%]
 tests/test_settlement_gate.py ..                                         [100%]
 
 =============================== warnings summary ===============================
@@ -23,4 +24,4 @@ tests/test_settlement_gate.py ..                                         [100%]
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 59 passed, 1 warning in 9.45s =========================
+======================== 74 passed, 1 warning in 15.89s ========================

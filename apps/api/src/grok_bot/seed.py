@@ -17,6 +17,12 @@ E2E_PROPERTY = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6")
 E2E_UNIT = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7")
 E2E_PAYER = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8")
 E2E_LEASE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9")
+E2E_PROSPECT = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac")
+E2E_VACANT = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad")
+E2E_LISTING = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae")
+E2E_RESOURCE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf")
+E2E_POLICY = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab0")
+E2E_SCHEDULE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaab1")
 
 
 def seed_e2e(migration_database_url: str, app_env: str) -> None:
@@ -49,10 +55,12 @@ def seed_e2e(migration_database_url: str, app_env: str) -> None:
         _user(conn, E2E_MANAGER, "Morgan Manager", "manager@example.test", "local-manager-password")
         _user(conn, E2E_ACCOUNTING, "Casey Accounting", "accounting@example.test", "local-accounting-password")
         _user(conn, E2E_TENANT, "Taylor Tenant", "tenant@example.test", "local-tenant-password")
+        _user(conn, E2E_PROSPECT, "Parker Prospect", "prospect@example.test", "local-prospect-password")
         _grant(conn, E2E_ADMIN, "organization_administrator")
         _grant(conn, E2E_MANAGER, "property_manager")
         _grant(conn, E2E_ACCOUNTING, "accounting_staff")
         _grant(conn, E2E_TENANT, "tenant")
+        _grant(conn, E2E_PROSPECT, "prospect")
         conn.execute(
             text(
                 """
@@ -110,6 +118,77 @@ def seed_e2e(migration_database_url: str, app_env: str) -> None:
                 "lease_id": E2E_LEASE,
                 "user_id": E2E_TENANT,
             },
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO units (id, organization_id, property_id, label)
+                VALUES (:id, :organization_id, :property_id, 'Vacant')
+                """
+            ),
+            {"id": E2E_VACANT, "organization_id": E2E_ORG, "property_id": E2E_PROPERTY},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO listings (
+                  id, organization_id, property_id, unit_id, external_source, external_listing_id,
+                  display_label, asking_rent_cents
+                ) VALUES (
+                  :id, :organization_id, :property_id, :unit_id, 'zillow', 'zillow-elm',
+                  'Elm Street listing', 100000
+                )
+                """
+            ),
+            {"id": E2E_LISTING, "organization_id": E2E_ORG, "property_id": E2E_PROPERTY, "unit_id": E2E_VACANT},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO screening_policies (
+                  id, organization_id, property_id, version, status, fixture, legal_review_reference,
+                  review_reason, reviewed_by, effective_at, rules, missing_action, accommodation_action,
+                  automatic_final_denial
+                ) VALUES (
+                  :id, :organization_id, :property_id, 1, 'REVIEWED_ACTIVE', true,
+                  'fixture:illustrative-not-a-requirement',
+                  'Browser fixture only. Not a real rental requirement.',
+                  :reviewed_by, '2026-01-01T00:00:00Z',
+                  CAST(:rules AS jsonb),
+                  'NEEDS_INFORMATION', 'HUMAN_REVIEW', false
+                )
+                """
+            ),
+            {
+                "id": E2E_POLICY,
+                "organization_id": E2E_ORG,
+                "property_id": E2E_PROPERTY,
+                "reviewed_by": E2E_MANAGER,
+                "rules": '[{"id":"income","field":"household_income_monthly_cents","operator":"gte_rent_multiple","ratio_numerator":3,"ratio_denominator":1,"failure_action":"HUMAN_REVIEW"}]',
+            },
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO schedule_configs (
+                  id, organization_id, property_id, duration_minutes, buffer_minutes, hold_minutes,
+                  min_notice_minutes, day_start, day_end, open_weekdays, timezone, fixture, label
+                ) VALUES (
+                  :id, :organization_id, :property_id, 30, 15, 5, 0, '09:00', '17:00',
+                  '{1,2,3,4,5,6,7}', 'America/New_York', true, 'fixture:prd-proposed-30-15-5'
+                )
+                """
+            ),
+            {"id": E2E_SCHEDULE, "organization_id": E2E_ORG, "property_id": E2E_PROPERTY},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO scheduling_resources (id, organization_id, property_id, kind, display_name)
+                VALUES (:id, :organization_id, :property_id, 'AGENT', 'Tour agent')
+                """
+            ),
+            {"id": E2E_RESOURCE, "organization_id": E2E_ORG, "property_id": E2E_PROPERTY},
         )
     engine.dispose()
 

@@ -2,7 +2,7 @@
 
 PRD §17 phase 2 deliverable: immutable journal, receipt/deposit/availability, allocation/fees/reserves, invoices, and reconciliation.
 
-This file records the phase 2 boundary. Phase 3 maintenance is now implemented in `docs/PHASE3_SCOPE.md`. Phase 4 prospects, and phase 5 statements, distribution batches, approval snapshots, instruction export, and the owner portal stay unbuilt. They are not dropped.
+This file records the phase 2 boundary. Phase 3 maintenance is in `docs/PHASE3_SCOPE.md`. Phase 4 prospects are in `docs/PHASE4_SCOPE.md`. Phase 5 statements, distribution batches, approval snapshots, instruction export, and the owner portal stay unbuilt. They are not dropped.
 
 ## In this milestone
 

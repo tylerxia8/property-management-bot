@@ -1,0 +1,35 @@
+DROP POLICY IF EXISTS actor_scope_invoices ON public.invoices;
+DROP POLICY IF EXISTS actor_scope_receipts ON public.receipts;
+DROP POLICY IF EXISTS actor_scope_journal_lines ON public.journal_lines;
+DROP POLICY IF EXISTS actor_scope_journals ON public.journal_entries;
+DROP POLICY IF EXISTS actor_scope_accommodation_notes ON public.accommodation_notes;
+DROP POLICY IF EXISTS actor_scope_entry_secrets ON public.entry_secrets;
+DROP POLICY IF EXISTS actor_scope_media ON public.media_objects;
+DROP POLICY IF EXISTS actor_scope_ticket_messages ON public.ticket_messages;
+DROP POLICY IF EXISTS actor_scope_intake_fields ON public.intake_fields;
+DROP POLICY IF EXISTS actor_scope_tickets ON public.maintenance_tickets;
+DROP POLICY IF EXISTS actor_scope_lease_parties ON public.lease_parties;
+DROP POLICY IF EXISTS actor_scope_leases ON public.leases;
+DROP POLICY IF EXISTS actor_scope_units ON public.units;
+DROP POLICY IF EXISTS actor_scope_properties ON public.properties;
+
+DROP TABLE IF EXISTS public.housing_dispositions;
+DROP TABLE IF EXISTS public.application_invitations;
+DROP TABLE IF EXISTS public.reminder_jobs;
+DROP TABLE IF EXISTS public.prospect_consents;
+DROP TABLE IF EXISTS public.tour_appointments;
+DROP TABLE IF EXISTS public.scheduling_resources;
+DROP TABLE IF EXISTS public.schedule_configs;
+DROP TABLE IF EXISTS public.accommodation_cases;
+DROP TABLE IF EXISTS public.human_reviews;
+DROP TABLE IF EXISTS public.policy_evaluations;
+DROP TABLE IF EXISTS public.screening_policies;
+DROP TABLE IF EXISTS public.prospect_intakes;
+DROP TABLE IF EXISTS public.inquiries;
+DROP TABLE IF EXISTS public.prospects;
+DROP TABLE IF EXISTS public.listings;
+
+DROP FUNCTION IF EXISTS public.prevent_evaluation_mutation();
+DROP FUNCTION IF EXISTS public.app_actor_is_manager();
+DROP FUNCTION IF EXISTS public.app_actor_is_staff();
+DROP FUNCTION IF EXISTS public.app_actor_id();

@@ -18,7 +18,7 @@ These are not PRD contradictions. M0 does not enable the capability.
 | Reserves, spending authority, shortfall priority | No reserve or creditor-priority engine |
 | Named approvers, recipient verification, dual control | No payment approval snapshot. ADR 0007 keeps declaration and simulated settlement off unless a dev/test fixture flag is set. Invoice approval still posts one payable and does not clear cash. |
 | Close calendar and retention matrix | No deletion job and no official statement |
-| Reviewed screening and accommodation policy | No automatic preliminary qualification |
+| Reviewed screening and accommodation policy | No production ratio is seeded. A missing policy returns human review and `CONFIGURATION_REQUIRED`. Fixture policies are labeled `fixture:`. Assistance-animal notes are private. No consumer report is ordered. |
 | Post-tour application vendor and adverse action | No consumer-report integration |
 | Marketplace access and communication consent | No external intake or outbound send |
 | Staffed emergency coverage | Escalation rows can be stored. Without a configured destination the job is `DESTINATION_UNCONFIGURED` and `delivered_at` stays null. Nothing is sent. |

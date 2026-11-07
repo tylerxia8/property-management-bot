@@ -38,6 +38,8 @@ Two more flags fail closed the same way:
 
 The evidence script does not set either flag, so the browser path does not clear a payable and does not mark an upload ready.
 
+Phase 4 does not add a calendar or screening provider. Tour confirmation stays `CONFIRMATION_PENDING` unless a manager records `MANAGER_CONFIRMED`, and `external_event_created` cannot be set true. The e2e seed publishes a screening policy and a tour schedule whose labels start with `fixture:`. Those rows are not production rules. The illustrative income ratio is only inside that fixture policy.
+
 ## Web
 
 ```bash

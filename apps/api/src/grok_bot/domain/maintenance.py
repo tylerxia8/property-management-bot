@@ -1015,6 +1015,10 @@ def _create_ticket(session, organization_id, secret, description, verification, 
             "safety_context": "gas" if life_safety and _gas(description) else "",
         },
     )
+    session.execute(
+        text("SELECT set_config('app.intake_ticket_id', :ticket_id, true)"),
+        {"ticket_id": str(ticket_id)},
+    )
     for field_key in FIELD_ORDER:
         field_status = "UNKNOWN"
         value = None

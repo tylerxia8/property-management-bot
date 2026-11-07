@@ -27,7 +27,7 @@ PRD references are the contract. Tests below are the M0 checks. “Not this mile
 | §8.2 encrypted contact values | AES-GCM, no plaintext column | `test_inbox_and_contacts.py` |
 | §7.2 inbox stores provider event id and encrypted payload; unique provider id | `inbox_events` | `test_inbox_and_contacts.py` |
 | §11 OIDC | Not selected | ADR 0002 fail-closed test |
-| §4 through §6 financial, prospect, and maintenance behavior | Phase 2 covers accounting. Phase 3 covers maintenance in `docs/PHASE3_SCOPE.md`. Prospects remain phase 4 | `tests/test_accounting_core.py`, `tests/test_maintenance.py` |
+| §4 through §6 financial, prospect, and maintenance behavior | Phase 2 accounting, phase 3 maintenance, phase 4 prospects | `tests/test_accounting_core.py`, `tests/test_maintenance.py`, `tests/test_prospects.py` |
 
 ## Phase 2 acceptance map
 
@@ -77,4 +77,26 @@ The assertion column is what the executed test checked. A test name by itself is
 | Settlement gate | Executed | With the fixture flag off, a manager approval left the 2040 payable at 4000 and bank 1030 at 0. Simulated settlement and distribution declaration returned `409 APPROVAL_CONTRACT_REQUIRED`. Production with the flag true still had `fixture_ledger_settlement_allowed` false, and the unauthenticated settlement call returned 401. |
 | Fixture scanner boundary | Executed | Production settings with `media_scanner=fixture` did not allow the scanner. A valid JPEG scanned with that flag stayed not ready, code `SCANNER_NOT_CONFIGURED`, scanner name not `fixture-byte-scanner`. The default test app did the same over HTTP, and download returned 404. |
 
-Not run, and not claimed: phase 4 prospect cases PRO-01 through PRO-12; phase 5 FIN-05, FIN-07, FIN-10, FIN-15, and FIN-18; a staffed on-call vendor send; a spending-limit number; a statutory notice period; production antivirus, KMS, or object storage; HEIC conversion; model or video-understanding calls. FIN-02, FIN-06, and FIN-19 still run only with the dev/test fixture settlement flag.
+Not run from phases 2 and 3, and not claimed: phase 5 FIN-05, FIN-07, FIN-10, FIN-15, and FIN-18; a staffed on-call vendor send; a spending-limit number; a statutory notice period; production antivirus, KMS, or object storage; HEIC conversion; model or video-understanding calls. FIN-02, FIN-06, and FIN-19 still run only with the dev/test fixture settlement flag.
+
+## Phase 4 acceptance map
+
+The assertion column is what the executed test checked.
+
+| ID | Result | What was asserted |
+| --- | --- | --- |
+| PRO-01 | Executed | Income of 250000 cents with no period stayed `income_monthly_cents` null. The question said a missing period is not treated as zero. Evaluation was `NEEDS_INFORMATION` with `income_period` missing, `final_denial` false, and no disposition row. Annual 6 cents becomes 1, biweekly 3 becomes 7, and weekly 3 becomes 13, one half-up step. |
+| PRO-02 | Executed | A fixture 2× policy and complete intake returned `PRELIMINARILY_QUALIFIED`. Income and the prospect stayed unverified. A hold was `HELD` with `external_event_created` false. The report route returned `409 REPORT_ORDERING_DISABLED`. |
+| PRO-03 | Executed | Invitation before a completed tour returned `409 TOUR_NOT_COMPLETED` and wrote no invitation. The report route returned `409 REPORT_ORDERING_DISABLED`. |
+| PRO-04 | Executed | Income under the labeled 3× fixture returned `HUMAN_REVIEW`, `policy_fixture` true, and `final_denial` false. The review item said `final_housing_decision` false. The AI role received 403 on disposition and no disposition row existed. |
+| PRO-05 | Executed | An assistance-animal intake marked the pet rule `NOT_APPLIED` and returned `HUMAN_REVIEW`. The evaluation body did not contain the accommodation note. Accounting and another prospect read 0 accommodation rows. The manager read 1. |
+| PRO-06 | Executed | A second evaluate that posted race, language, postal code, and name kept the same input hash and result. A policy using `race` or `failure_action` `DENY` returned `422 PROHIBITED_POLICY_FIELD`. |
+| PRO-07 | Executed | Two concurrent hold requests for the same resource and window returned 201 and 409. One `HELD` row remained. |
+| PRO-08 | Executed | `2026-03-08T02:30` in `America/New_York` returned `409 NONEXISTENT_LOCAL_TIME`. `2026-11-01T01:30` returned `409 AMBIGUOUS_LOCAL_TIME`. `dst_resolution` `later` created the hold. Confirming that occupied unit without access evidence returned `409 ACCESS_NOT_RECORDED`. After evidence, status was `MANAGER_CONFIRMED` and `external_event_created` was false. |
+| PRO-09 | Executed | Confirm with the provider unset returned `CONFIRMATION_PENDING` and `external_event_created` false. The retry returned the same external event key. One `CalendarSyncRequested` outbox row existed. |
+| PRO-10 | Executed | SMS consent false stored `OPTED_OUT` and `delivered_at` null. Email consent true stored `SCHEDULED`, then cancel set those rows to `SUPPRESSED` with `delivered_at` still null. Reschedule of a later hold also left the prior email reminders `SUPPRESSED`. |
+| PRO-11 | Executed | An address hint matching two Elm listings returned `ambiguous` true, no prospect id, and a question that no unit was selected. Repeating the provider message id returned the same inquiry with `duplicate` true. A resolvable listing id created one prospect. A replay kept that prospect id. Prospect count was 1 and tour count was 0. |
+| PRO-12 | Executed | The first evaluation stayed `PRELIMINARILY_QUALIFIED` with its original hash after a stricter policy version. The new evaluation was `HUMAN_REVIEW` on the new version. Updating an evaluation row raised a database error. A hold without an exception returned `409 HUMAN_REVIEW_REQUIRED`. A manager exception with a reason then allowed a `HELD` tour. |
+| Portal scope | Executed | A prospect actor read 0 properties, 0 leases, and 0 journal entries. The same organization with a manager actor read the property. An actor-less organization setting still read the property, which is the M0 connection shape. |
+
+Not run: a live calendar send, an email or SMS send, a consumer-report order, and any automated final housing decision. Phase 5 remains unstarted.
