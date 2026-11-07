@@ -1,8 +1,8 @@
 # Railway fictional demo
 
 Deploy PostgreSQL, `api`, `web`, and `gateway` in one Railway project. Only
-`gateway` gets a public HTTPS domain. Its shared password protects every page
-and API request. This is a shared fictional-data demo, not a production portal.
+`gateway` gets a public HTTPS domain. The demo opens without a site password.
+Anyone with the URL can switch roles and modify the shared fictional data.
 
 Upload each directory as its service root (`railway up --path-as-root`). Docker
 build settings are supplied in `railway.toml`; for CLI uploads, explicitly set
@@ -43,26 +43,21 @@ Set `WEB_HOST=::`, `PORT=3000`, and `NEXT_PUBLIC_HOSTED_DEMO=true` on `web`.
 Set `API_INTERNAL_ORIGIN=http://api.railway.internal:8000` on `web` before its
 build, using the API's actual private hostname. The browser uses same-origin
 `/v1` requests. The web container listens on IPv6 for private networking.
-The hosted build sends its role token in `X-Grok-Authorization`, preserving the
-browser's Basic authentication for the gateway. After authenticating the site
-password, the gateway forwards that token as the API's Authorization header.
+The hosted build sends its role token in `X-Grok-Authorization`; the gateway
+forwards that token as the private API's Authorization header.
 
 On `gateway`, configure:
 
 ```dotenv
 PORT=8080
 WEB_INTERNAL_ORIGIN=http://web.railway.internal:3000
-DEMO_USER=presenter
-DEMO_PASSWORD_HASH=<bcrypt hash of the shared demo password>
 ```
 
-Use the actual web private hostname. Generate the hash with
-`docker run --rm -it caddy:2.10.2-alpine caddy hash-password` and keep the password
-in a password manager. Railway terminates public HTTPS; Caddy listens internally
+Use the actual web private hostname. Railway terminates public HTTPS; Caddy listens internally
 on HTTP. Only the gateway should have a public domain.
 
-Before sharing, verify unauthenticated `/` and `/v1/health` requests return 401.
-After logging in, check health and rehearse all five workflows in
+Before sharing, verify `/` and `/v1/health` return 200 without a site password.
+Check role switching and rehearse all five workflows in
 [the walkthrough](DEMO_WALKTHROUGH.md). Confirm outbound switches remain false,
 API and web have no public domains, and PostgreSQL has no public proxy.
 
@@ -71,7 +66,7 @@ Update role passwords and database URLs together. Rebuild web after changing
 its API origin. Monitor Railway usage and spending alerts: running services
 incur ongoing charges.
 
-Everyone with the shared password can switch roles. Live banking, payments,
+Everyone with the URL can switch roles. Live banking, payments,
 messaging, external calendars, formal screening, and production identity/media
 services remain disabled. This setup does not add per-person access controls or
 a production backup policy.
@@ -80,7 +75,7 @@ a production backup policy.
 
 - Website: https://gateway-production-fc87.up.railway.app
 - Railway project: https://railway.com/project/c39d7bf1-be61-4777-98ac-b83ee88e9002
-- Verified: hosted authentication, all five role APIs, disabled outbound switches,
+- Verification: public access without a password, all five role APIs, disabled outbound switches,
   and the Chromium walkthrough for rent, prospect review, manager exception,
   tour hold, maintenance emergency, and owner statement.
 - Deployment currently uses CLI source uploads. Merging changes on GitHub does

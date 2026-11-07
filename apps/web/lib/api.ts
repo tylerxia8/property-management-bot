@@ -47,8 +47,7 @@ export async function api(path: string, init: RequestInit = {}): Promise<Respons
     headers.set("Content-Type", "application/json");
   }
   const token = getToken();
-  // The hosted gateway uses HTTP Basic auth; keep the app token separate so
-  // the browser can continue sending the gateway credentials on API calls.
+  // The hosted gateway forwards this header as the private API's bearer token.
   if (token) headers.set(process.env.NEXT_PUBLIC_HOSTED_DEMO === "true" ? "X-Grok-Authorization" : "Authorization", `Bearer ${token}`);
   return fetch(`${API_BASE}${path}`, { ...init, headers });
 }
