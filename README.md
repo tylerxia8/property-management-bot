@@ -10,6 +10,8 @@ The product specification covers:
 
 Read the **[Engineering Product Requirements Document — Version 2.0](PRD.md)** for workflows, database design, API contracts, accounting formulas, security requirements, acceptance tests, implementation phases, and production gates.
 
-M0 is the foundation slice: organization isolation, dev/test authentication that fails closed in production, property and unit commands, and a small web shell. Ledger, screening, maintenance, and live providers are not implemented. Local setup and the current test evidence are in [docs/SETUP.md](docs/SETUP.md) and [docs/evidence](docs/evidence).
+The local implementation includes organization isolation, dev/test authentication, property and unit management, a double-entry ledger, preliminary screening and tours, maintenance intake, statements, and approved distribution instruction exports. A fictional local demo supports exploring these workflows. Live banking, outbound messaging, external calendars, production identity, and production media services remain disabled or unconfigured.
+
+For setup and the demo bundle, see [docs/SETUP.md](docs/SETUP.md) and the [demo instructions](deploy/grok-property-sample/README.md). The [implementation plan](docs/PLAN.md), [local acceptance matrix](docs/ACCEPTANCE.md), and [dependency gates](docs/DEPENDENCY_GATES.md) distinguish implemented behavior from remaining work. Local test evidence is in [docs/evidence](docs/evidence); it does not establish staging acceptance or production readiness.
 
 Business-specific fees, banking providers, landlord agreements, and legally reviewed screening policies remain explicit configuration and production prerequisites.

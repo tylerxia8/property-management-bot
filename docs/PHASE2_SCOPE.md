@@ -34,7 +34,7 @@ This file records the phase 2 boundary. Phase 3 maintenance is in `docs/PHASE3_S
 ## Gates left visible
 
 - `DIRECT_BANK` receipts return `DIRECT_BANK_TEMPLATE_UNCONFIGURED`
-- CSV bank imports return `BANK_IMPORT_FORMAT_UNCONFIGURED`
+- Bank-specific CSV layouts remain unconfigured; canonical JSON and the explicit `canonical_csv_v1` format are supported (ADR 0017).
 - Responsibility modes other than ownership weights return `CONFIGURATION_REQUIRED`
 - Outbound-clearing is not given an account code
 - No creditor priority is chosen when property cash cannot fund a payable

@@ -847,15 +847,12 @@ def settle_declaration(session: Session, organization_id: UUID, declaration_id: 
 
 
 def import_bank_transactions(session: Session, organization_id: UUID, body: dict) -> dict:
-    if body.get("format") == "csv" or body.get("csv_text"):
-        problem(
-            409,
-            "BANK_IMPORT_FORMAT_UNCONFIGURED",
-            "No bank CSV layout is configured. Canonical transaction JSON is the supported import.",
-        )
+    from grok_bot.domain.bank_imports import bank_import_transactions
+
+    transactions = bank_import_transactions(body)
     created = 0
     existing = 0
-    for item in body["transactions"]:
+    for item in transactions:
         inserted = session.execute(
             text(
                 """
@@ -881,6 +878,30 @@ def import_bank_transactions(session: Session, organization_id: UUID, body: dict
         if inserted:
             created += 1
         else:
+            # The external ID identifies an immutable bank event, not permission
+            # to ignore a different amount or date. The unique insert above also
+            # waits for concurrent importers before we compare their saved row.
+            saved = session.execute(
+                text(
+                    """
+                    SELECT amount_cents, posted_on FROM bank_transactions
+                    WHERE organization_id = :organization_id
+                      AND bank_account_id = :bank_account_id
+                      AND external_id = :external_id
+                    """
+                ),
+                {
+                    "organization_id": organization_id,
+                    "bank_account_id": item["bank_account_id"],
+                    "external_id": item["external_id"],
+                },
+            ).mappings().one()
+            if saved["amount_cents"] != item["amount_cents"] or str(saved["posted_on"]) != str(item["posted_on"]):
+                problem(
+                    409,
+                    "BANK_TRANSACTION_CONFLICT",
+                    "A bank transaction with this external ID has a different amount or date. Review the source before importing again.",
+                )
             existing += 1
     return {"created": created, "existing": existing}
 
