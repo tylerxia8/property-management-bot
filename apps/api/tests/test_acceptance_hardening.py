@@ -190,7 +190,6 @@ def test_worker_retries_then_dead_letters_without_delivery(app, migrator_engine)
             roles=["property_manager"],
             org_name="Worker",
         )
-    now = datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc)
     with Session(app.state.engine) as session:
         set_tenant(session, org_id, manager_id)
         write_outbox(
@@ -202,6 +201,13 @@ def test_worker_retries_then_dead_letters_without_delivery(app, migrator_engine)
             payload={"fail": True, "actor_id": str(manager_id)},
         )
         session.commit()
+        set_tenant(session, org_id, manager_id)
+        # Start at this event's eligibility time, not a fixed date that becomes
+        # earlier than the database clock as the test suite ages.
+        now = session.execute(
+            text("SELECT available_at FROM outbox_events WHERE organization_id = :org AND dedup_key = 'probe-1'"),
+            {"org": org_id},
+        ).scalar_one()
         for index in range(5):
             dispatch_outbox(session, org_id, manager_id, now + timedelta(minutes=index))
             session.commit()
