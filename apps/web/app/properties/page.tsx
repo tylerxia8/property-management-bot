@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Me, Property, api, clearToken, getToken } from "../../lib/api";
 
@@ -21,6 +21,9 @@ export default function PropertiesPage() {
   const [items, setItems] = useState<Property[]>([]);
   const [error, setError] = useState("");
   const [form, setForm] = useState(EMPTY);
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const loadVersion = useRef(0);
 
   useEffect(() => {
     if (!getToken()) {
@@ -28,45 +31,63 @@ export default function PropertiesPage() {
       return;
     }
     void load();
+    return () => { loadVersion.current += 1; };
   }, [router]);
 
   async function load() {
+    const version = ++loadVersion.current;
+    setLoaded(false);
     const meResponse = await api("/v1/me");
+    if (version !== loadVersion.current) return;
     if (meResponse.status === 401) {
       clearToken();
       router.replace("/login");
       return;
     }
     const meBody = await meResponse.json();
+    if (version !== loadVersion.current) return;
     setMe(meBody);
     const listResponse = await api("/v1/properties");
     const listBody = await listResponse.json();
+    if (version !== loadVersion.current) return;
     if (!listResponse.ok) {
       setError(listBody.error?.message ?? "Properties are unavailable.");
       setItems([]);
+      setLoaded(true);
       return;
     }
     setItems(listBody.items);
+    setLoaded(true);
   }
 
   async function onCreate(event: FormEvent) {
     event.preventDefault();
+    if (saving || !loaded) return;
+    setSaving(true);
+    loadVersion.current += 1;
     setError("");
-    const response = await api("/v1/properties", {
-      method: "POST",
-      headers: { "Idempotency-Key": crypto.randomUUID() },
-      body: JSON.stringify(form),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error?.message ?? "Create failed.");
-      return;
+    try {
+      const response = await api("/v1/properties", {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify(form),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setError(body.error?.message ?? "Create failed.");
+        return;
+      }
+      loadVersion.current += 1;
+      setForm(EMPTY);
+      setItems(current => [...current.filter(item => item.id !== body.id), body]);
+    } catch {
+      setError("The property could not be saved. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setForm(EMPTY);
-    await load();
   }
 
-  const canCreate = me?.capabilities.includes("properties.create") ?? false;
+  const canCreate = loaded && (me?.capabilities.includes("properties.create") ?? false);
 
   return (
     <>
@@ -111,12 +132,13 @@ export default function PropertiesPage() {
               {label}
               <input
                 value={form[key]}
+                disabled={saving}
                 onChange={(event) => setForm({ ...form, [key]: event.target.value })}
                 required
               />
             </label>
           ))}
-          <button type="submit">Create property</button>
+          <button type="submit" disabled={saving}>Create property</button>
         </form>
       ) : null}
       <ul>

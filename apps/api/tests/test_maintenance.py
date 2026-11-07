@@ -5,6 +5,7 @@ from io import BytesIO
 from uuid import uuid4
 
 from PIL import Image
+from pillow_heif import from_pillow
 from sqlalchemy import text
 
 from grok_bot.domain.clock import FrozenClock
@@ -32,6 +33,23 @@ REQUIRED_STATUSES = (
     "CANCELED",
     "REOPENED",
 )
+
+
+def test_heic_upload_is_converted_and_downloadable(client, migrator_engine, fixture_scanner):
+    staff = _staff(client, migrator_engine)
+    ticket = _report(client, staff["tenant"], "Sink leaks")
+    payload = BytesIO()
+    from_pillow(Image.new("RGB", (64, 32), "red")).save(payload)
+    ready = _upload_and_complete(client, staff["tenant"], ticket["id"], payload.getvalue(), "image/heic", "phone.heic")
+    assert ready["status"] == "READY", ready
+    download = client.get(f"/v1/media/{ready['id']}/download", headers=staff["tenant"])
+    content = client.get(download.json()["download_url"])
+    assert content.status_code == 200
+    with Image.open(BytesIO(content.content)) as image:
+        assert image.format == "JPEG"
+        assert image.size == (64, 32)
+
+
 CATEGORIES = {
     "leak": "clean or sewage",
     "hvac": "no heat",
@@ -271,7 +289,7 @@ def test_mnt_05_rejects_bad_files_and_keeps_one_ticket(client, migrator_engine, 
     heic = b"\x00\x00\x00\x18ftypheic" + b"\x00" * 32
     converted = _upload_and_complete(client, staff["tenant"], ticket["id"], heic, "image/heic", "phone.heic")
     assert converted["status"] == "REJECTED"
-    assert converted["scan_code"] == "HEIC_CONVERSION_UNAVAILABLE"
+    assert converted["scan_code"] == "IMAGE_DECODE_FAILED"
     good = _jpeg_bytes()
     ready = _upload_and_complete(client, staff["tenant"], ticket["id"], good, "image/jpeg", "sink.jpg")
     assert ready["status"] == "READY"

@@ -393,7 +393,6 @@ def store_and_scan(session, settings, organization_id, media_id, payload: bytes 
     if payload is None:
         if not path.exists():
             problem(409, "UPLOAD_INCOMPLETE", "The quarantined upload has not arrived.")
-        payload = path.read_bytes()
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(payload)
@@ -402,13 +401,13 @@ def store_and_scan(session, settings, organization_id, media_id, payload: bytes 
         text("UPDATE media_objects SET status = 'SCANNING' WHERE id = :id"),
         {"id": media_id},
     )
-    if row["size_bytes"] is not None and len(payload) != row["size_bytes"]:
+    if row["size_bytes"] is not None and path.stat().st_size != row["size_bytes"]:
         session.execute(
             text("UPDATE media_objects SET status = 'REJECTED', scan_code = 'SIZE_MISMATCH', rejection_reason = 'Declared size does not match the upload.' WHERE id = :id"),
             {"id": media_id},
         )
         return {"id": str(media_id), "status": "REJECTED", "scan_code": "SIZE_MISMATCH", "scanner_name": None, "ticket_id": str(row["ticket_id"])}
-    if declared_hash and hashlib.sha256(payload).hexdigest() != declared_hash:
+    if declared_hash and sha256_file(path) != declared_hash:
         session.execute(
             text("UPDATE media_objects SET status = 'REJECTED', scan_code = 'CHECKSUM_MISMATCH', rejection_reason = 'Declared checksum does not match the upload.' WHERE id = :id"),
             {"id": media_id},

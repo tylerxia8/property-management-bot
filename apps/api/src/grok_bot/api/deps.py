@@ -12,6 +12,8 @@ from grok_bot.errors import problem
 
 
 def get_session(request: Request) -> Generator[Session, None, None]:
+    # Callers use scope="function": failed commits must not follow a 2xx
+    # response, and immediate follow-up requests must see committed writes.
     session = Session(request.app.state.engine, expire_on_commit=False)
     try:
         yield session
@@ -92,7 +94,7 @@ def principal_from_request(request: Request, session: Session) -> Principal:
     )
 
 
-def get_principal(request: Request, session: Session = Depends(get_session)) -> Principal:
+def get_principal(request: Request, session: Session = Depends(get_session, scope="function")) -> Principal:
     return principal_from_request(request, session)
 
 

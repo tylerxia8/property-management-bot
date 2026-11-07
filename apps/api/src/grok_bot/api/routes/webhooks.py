@@ -10,7 +10,7 @@ router = APIRouter(responses=ERROR_RESPONSES)
 
 
 @router.post("/webhooks/{provider}", response_model=WebhookOut, status_code=202)
-async def post_webhook(provider: str, request: Request, session: Session = Depends(get_session)):
+async def post_webhook(provider: str, request: Request, session: Session = Depends(get_session, scope="function")):
     body = await request.body()
     result = accept_webhook(
         session,

@@ -443,6 +443,22 @@ def test_pro_12_old_evaluation_survives_a_new_policy(client, migrator_engine):
     assert held["status"] == "HELD"
 
 
+def test_inquiry_typo_offers_confirmation_and_does_not_override_external_id(client, migrator_engine):
+    staff = _people(client, migrator_engine)
+    request = {"provider": "zillow", "provider_message_id": "typo-1", "address_hint": "Elmm Street"}
+    response = client.post("/v1/inquiries", headers=staff["manager"], json=request)
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["ambiguous"] and body["prospect_id"] is None
+    assert "Elm Street" in body["clarification"]
+    replay = client.post("/v1/inquiries", headers=staff["manager"], json=request).json()
+    assert replay["clarification"] == body["clarification"]
+    assert replay["duplicate"]
+    request.update(provider_message_id="unknown-external", external_listing_id="does-not-exist")
+    unknown = client.post("/v1/inquiries", headers=staff["manager"], json=request).json()
+    assert unknown["prospect_id"] is None and "Possible listings" not in unknown["clarification"]
+
+
 def test_portal_actor_cannot_read_other_people_rows(client, migrator_engine, app):
     staff = _people(client, migrator_engine)
     with app.state.engine.connect() as conn:

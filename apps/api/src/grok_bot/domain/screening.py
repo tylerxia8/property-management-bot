@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from grok_bot.crypto import encrypt_text
 from grok_bot.domain.money import round_half_up_ratio
+from grok_bot.domain.listing_match import MAX_CANDIDATES, resolve_hint
 from grok_bot.domain.records import write_audit
 from grok_bot.errors import problem
 
@@ -742,11 +743,13 @@ def _resolve_listing(session, organization_id, source: str, external_id: str | N
                 SELECT id, property_id, unit_id, display_label
                 FROM listings
                 WHERE organization_id = :organization_id AND active = true
-                  AND display_label ILIKE :hint
+                ORDER BY display_label, id
+                LIMIT :limit
                 """
             ),
-            {"organization_id": organization_id, "hint": f"%{hint}%"},
+            {"organization_id": organization_id, "limit": MAX_CANDIDATES + 1},
         ).mappings().all()
+        return resolve_hint(hint, rows)
     else:
         rows = []
     if len(rows) == 1:

@@ -2,8 +2,53 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from tests.support import PROPERTY, bearer, login, seed_member
+
+
+def test_failed_commit_cannot_return_success(app, client, migrator_engine, monkeypatch):
+    from grok_bot.api import deps
+
+    with migrator_engine.begin() as conn:
+        seed_member(conn, org_id=uuid4(), user_id=uuid4(), subject="commit-admin@example.test",
+                    password="local-admin-password", roles=["organization_administrator"])
+    token = bearer(login(client, "commit-admin@example.test", "local-admin-password"))
+
+    class FailedCommit(Session):
+        def commit(self):
+            raise RuntimeError("Deliberate commit failure")
+
+    monkeypatch.setattr(deps, "Session", FailedCommit)
+    with TestClient(app, raise_server_exceptions=False) as failing:
+        response = failing.post("/v1/properties", headers={**token, "Idempotency-Key": "commit-failure"},
+                                json={**PROPERTY, "name": "Must not be committed"})
+    assert response.status_code == 500
+    with migrator_engine.connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM properties WHERE name = 'Must not be committed'")).scalar() == 0
+
+
+def test_created_property_is_committed_before_response_starts(app, client, migrator_engine):
+    with migrator_engine.begin() as conn:
+        seed_member(conn, org_id=uuid4(), user_id=uuid4(), subject="visible-admin@example.test",
+                    password="local-admin-password", roles=["organization_administrator"])
+    token = bearer(login(client, "visible-admin@example.test", "local-admin-password"))
+    observed = []
+
+    async def observe(scope, receive, send):
+        async def checked(message):
+            if scope.get("path") == "/v1/properties" and message["type"] == "http.response.start":
+                with migrator_engine.connect() as conn:
+                    observed.append(conn.execute(text("SELECT count(*) FROM properties WHERE name = 'Visible before response'")).scalar())
+            await send(message)
+        await app(scope, receive, checked)
+
+    with TestClient(observe) as observer:
+        response = observer.post("/v1/properties", headers={**token, "Idempotency-Key": "visible-before-response"},
+                                 json={**PROPERTY, "name": "Visible before response"})
+    assert response.status_code == 201, response.text
+    assert observed == [1]
 
 
 def test_concurrent_if_match_allows_one_update(app, client, migrator_engine):

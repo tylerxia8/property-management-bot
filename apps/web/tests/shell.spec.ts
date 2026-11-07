@@ -35,7 +35,10 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
   await page.getByLabel("Postal code").fill("27701");
   await page.getByLabel("Country").fill("US");
   await page.getByLabel("Timezone").fill("America/New_York");
+  const created = page.waitForResponse(response => response.request().method() === "POST" && /\/v1\/properties$/.test(response.url()));
   await page.getByRole("button", { name: "Create property" }).click();
+  const createResponse = await created;
+  expect(createResponse.ok(), await createResponse.text()).toBeTruthy();
   await page.getByRole("link", { name: "Canal House" }).click();
   await page.getByLabel("Unit label").fill("Main");
   await page.getByRole("button", { name: "Add unit" }).click();

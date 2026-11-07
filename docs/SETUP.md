@@ -34,7 +34,7 @@ export CONTACT_ENCRYPTION_KEY="$(python3 -c 'import os,base64; print(base64.b64e
 Two more flags fail closed the same way:
 
 - `ALLOW_FIXTURE_LEDGER_SETTLEMENT` defaults to false. Even when true, production ignores it. The declaration and simulated-settlement routes then return `409 APPROVAL_CONTRACT_REQUIRED` and post nothing. See ADR 0007.
-- `MEDIA_SCANNER=fixture` is the only local media checker, and only in development or test. It is not a malware product. Any other value, including in production, leaves uploads rejected with `SCANNER_NOT_CONFIGURED`. `MEDIA_ROOT` is the local quarantine directory. JPEG and PNG use Pillow. Short MP4 and MOV files use `ffmpeg` and `ffprobe` on this machine. HEIC is recognized and left unready.
+- `MEDIA_SCANNER=fixture` is the only local media checker, and only in development or test. It is not a malware product. Any other value, including in production, leaves uploads rejected with `SCANNER_NOT_CONFIGURED`. `MEDIA_ROOT` is the local quarantine directory. JPEG and PNG use Pillow; HEIC uses pillow-heif to create metadata-free JPEG derivatives. Short MP4 and MOV files use `ffmpeg` and `ffprobe` on this machine. See [the open-source review](OPEN_SOURCE_REVIEW.md) for decoder limits and licenses.
 
 The evidence script does not set either flag, so the browser path does not clear a payable and does not mark an upload ready.
 

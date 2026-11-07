@@ -25,19 +25,19 @@ class AlertBody(BaseModel):
 
 
 @router.get("/kill-switches", response_model=SwitchOut)
-def get_switches(principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_switches(principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "distributions.approve")
     return outbound_flags(session, principal.organization_id)
 
 
 @router.put("/kill-switches", response_model=SwitchOut)
-def put_switches(body: SwitchBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def put_switches(body: SwitchBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "distributions.approve")
     return set_outbound_flags(session, principal.organization_id, body.model_dump())
 
 
 @router.post("/alerts", response_model=AlertOut)
-def post_alert(body: AlertBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_alert(body: AlertBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.acknowledge")
     created = raise_alert(session, principal.organization_id, body.kind, {"requested": True})
     result = dispatch_alerts(

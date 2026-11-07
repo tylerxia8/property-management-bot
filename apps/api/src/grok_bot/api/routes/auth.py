@@ -15,7 +15,7 @@ router = APIRouter(responses=ERROR_RESPONSES)
 
 
 @router.post("/auth/local/login", response_model=LoginOut)
-def local_login(body: LoginBody, request: Request, session: Session = Depends(get_session)) -> dict:
+def local_login(body: LoginBody, request: Request, session: Session = Depends(get_session, scope="function")) -> dict:
     settings = request.app.state.settings
     if not settings.allows_local_auth:
         problem(404, "NOT_FOUND", "Not found.")
@@ -58,7 +58,7 @@ def local_login(body: LoginBody, request: Request, session: Session = Depends(ge
 
 
 @router.post("/auth/local/step-up", response_model=StepUpOut)
-def local_step_up(body: LoginBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)) -> dict:
+def local_step_up(body: LoginBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")) -> dict:
     if not request.app.state.settings.allows_local_auth:
         problem(404, "NOT_FOUND", "Not found.")
     if body.subject != "" and body.password == "":

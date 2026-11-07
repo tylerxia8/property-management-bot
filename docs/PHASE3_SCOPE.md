@@ -15,7 +15,7 @@ Phase 4 prospects are implemented in `docs/PHASE4_SCOPE.md`. Phase 5 statements 
 - Accommodation notes and door codes are stored apart from the contractor view. Door codes are encrypted and kept out of notification payloads
 - Media quarantine, magic-byte checks, checksum and size checks, JPEG/PNG EXIF stripping and thumbnails, and ffmpeg duration checks for MP4/MOV
 - The byte scanner runs only when `APP_ENV` is development or test and `media_scanner=fixture`. It is named as a fixture. Production cannot mark an object ready with it
-- HEIC is recognized and left unready when this environment cannot convert it
+- HEIC converts through pillow-heif in the configured dev/test scanner; malformed or oversized images remain rejected. Production fixture scanning remains disabled. See `docs/OPEN_SOURCE_REVIEW.md`.
 - Manager-only contractor assignment. Contractors see only the assigned ticket. Availability is not entry permission
 - Completion does not post a payable. Manager approval uses the existing invoice approval command once. Reopen keeps assignments and invoices
 - No model calls. Questions come from templates. A classifier result cannot clear an emergency

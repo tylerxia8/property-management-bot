@@ -51,6 +51,14 @@ jobs:
       - name: Run pytest, web build, typecheck, and Playwright
         run: bash scripts/run_m0_evidence.sh
 
+      - name: Keep regression browser evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-browser-failure
+          path: apps/web/test-results
+          retention-days: 7
+
   demo-bundle:
     runs-on: ubuntu-24.04
     timeout-minutes: 40

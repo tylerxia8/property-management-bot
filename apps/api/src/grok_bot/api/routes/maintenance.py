@@ -202,14 +202,14 @@ class ReasonBody(BaseModel):
 
 
 @router.post("/maintenance-intake-links", response_model=IntakeLinkOut)
-def post_intake_link(request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_intake_link(request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     del session
     return {"token": mint_org_token(request.app.state.settings.session_secret, principal.organization_id), "request_id": request_id_of(request)}
 
 
 @router.post("/maintenance-tickets", response_model=TicketOut, status_code=201)
-def post_ticket(body: TicketBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_ticket(body: TicketBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     if not (principal.allows("maintenance.report") or principal.allows("maintenance.manage")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
     result = create_verified_ticket(
@@ -225,7 +225,7 @@ def post_ticket(body: TicketBody, request: Request, principal: Principal = Depen
 
 
 @router.post("/maintenance-tickets/unverified", response_model=TicketOut, status_code=201)
-def post_unverified(body: UnverifiedBody, request: Request, session: Session = Depends(get_session)):
+def post_unverified(body: UnverifiedBody, request: Request, session: Session = Depends(get_session, scope="function")):
     payload = _bearer_payload(request)
     if payload.get("amr") != "intake_org" or payload.get("env") != "ticket":
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
@@ -244,7 +244,7 @@ def post_unverified(body: UnverifiedBody, request: Request, session: Session = D
 
 
 @router.get("/maintenance-tickets/{ticket_id}", response_model=TicketOut)
-def get_one(ticket_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_one(ticket_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     viewer = can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles)
     if viewer is None:
         problem(404, "NOT_FOUND", "Ticket not found.")
@@ -254,7 +254,7 @@ def get_one(ticket_id: UUID, request: Request, principal: Principal = Depends(ge
 
 
 @router.patch("/maintenance-tickets/{ticket_id}", response_model=TicketOut)
-def patch_one(ticket_id: UUID, body: IntakeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def patch_one(ticket_id: UUID, body: IntakeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     viewer = can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles)
     if viewer not in {"manager", "tenant"}:
         problem(404, "NOT_FOUND", "Ticket not found.")
@@ -272,7 +272,7 @@ def patch_one(ticket_id: UUID, body: IntakeBody, request: Request, principal: Pr
 
 
 @router.post("/maintenance-tickets/{ticket_id}/messages", response_model=TicketOut)
-def post_message(ticket_id: UUID, body: MessageBody, request: Request, session: Session = Depends(get_session)):
+def post_message(ticket_id: UUID, body: MessageBody, request: Request, session: Session = Depends(get_session, scope="function")):
     actor, organization_id = _ticket_actor(request, session, ticket_id)
     add_message(
         session,
@@ -293,7 +293,7 @@ def post_message(ticket_id: UUID, body: MessageBody, request: Request, session: 
 
 
 @router.post("/maintenance-tickets/{ticket_id}/media-uploads", response_model=UploadOut, status_code=201)
-def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Session = Depends(get_session)):
+def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Session = Depends(get_session, scope="function")):
     actor, organization_id = _ticket_actor(request, session, ticket_id)
     if actor is not None and can_view_ticket(session, organization_id, ticket_id, actor.user_id, actor.roles) is None:
         problem(404, "NOT_FOUND", "Ticket not found.")
@@ -314,7 +314,7 @@ def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Se
 
 
 @router.post("/media/{media_id}/bytes", response_model=QuarantineOut)
-async def post_bytes(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session)):
+async def post_bytes(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session, scope="function")):
     payload = _media_payload(request, token, media_id, "media_upload")
     set_tenant(session, UUID(payload["org"]), None, intake_ticket_id=UUID(payload["tid"]), access_mode="intake")
     stored = save_quarantine(session, request.app.state.settings, UUID(payload["org"]), media_id, await request.body())
@@ -323,7 +323,7 @@ async def post_bytes(media_id: UUID, request: Request, token: str, session: Sess
 
 
 @router.post("/media/{media_id}/complete", response_model=ScanOut)
-def post_complete(media_id: UUID, request: Request, session: Session = Depends(get_session)):
+def post_complete(media_id: UUID, request: Request, session: Session = Depends(get_session, scope="function")):
     actor, organization_id = _any_actor(request, session)
     row = _media(session, organization_id, media_id)
     if actor is None:
@@ -339,7 +339,7 @@ def post_complete(media_id: UUID, request: Request, session: Session = Depends(g
 
 
 @router.get("/media/{media_id}/download", response_model=DownloadOut)
-def get_download(media_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def get_download(media_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     row = _media(session, principal.organization_id, media_id)
     if can_view_ticket(session, principal.organization_id, row["ticket_id"], principal.user_id, principal.roles) is None:
         problem(404, "NOT_FOUND", "Media not found.")
@@ -365,7 +365,7 @@ def get_download(media_id: UUID, request: Request, principal: Principal = Depend
         }
     },
 )
-def get_content(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session)):
+def get_content(media_id: UUID, request: Request, token: str, session: Session = Depends(get_session, scope="function")):
     payload = _media_payload(request, token, media_id, "media_download")
     organization_id = UUID(payload["org"])
     set_tenant(session, organization_id, None, intake_ticket_id=UUID(payload["tid"]), access_mode="intake")
@@ -377,7 +377,7 @@ def get_content(media_id: UUID, request: Request, token: str, session: Session =
 
 
 @router.post("/maintenance-tickets/{ticket_id}/escalations", response_model=EscalationOut)
-def post_escalation(ticket_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_escalation(ticket_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     if not (principal.allows("maintenance.report") or principal.allows("maintenance.manage")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
     if can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles) is None:
@@ -388,7 +388,7 @@ def post_escalation(ticket_id: UUID, request: Request, principal: Principal = De
 
 
 @router.post("/escalations/{escalation_id}/acknowledge", response_model=AckOut)
-def post_ack(escalation_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_ack(escalation_id: UUID, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.acknowledge")
     result = acknowledge(session, principal.organization_id, escalation_id, principal.user_id, request.app.state.clock)
     result["request_id"] = request_id_of(request)
@@ -396,7 +396,7 @@ def post_ack(escalation_id: UUID, request: Request, principal: Principal = Depen
 
 
 @router.post("/maintenance-escalations/advance", response_model=AdvanceOut)
-def post_advance(request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_advance(request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     result = advance_escalations(session, principal.organization_id, request.app.state.clock, principal.user_id)
     result["request_id"] = request_id_of(request)
@@ -405,31 +405,31 @@ def post_advance(request: Request, principal: Principal = Depends(get_principal)
 
 
 @router.post("/maintenance-tickets/{ticket_id}/deescalations", response_model=DeescalateOut)
-def post_deescalate(ticket_id: UUID, body: ReasonBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_deescalate(ticket_id: UUID, body: ReasonBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     return deescalate(session, principal.organization_id, ticket_id, principal.user_id, body.reason)
 
 
 @router.post("/contractor-profiles", response_model=ProfileOut, status_code=201)
-def post_profile(body: ProfileBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_profile(body: ProfileBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     return JSONResponse(status_code=201, content=create_contractor_profile(session, principal.organization_id, body.party_id, body.user_id, body.approved, body.trades))
 
 
 @router.post("/maintenance-tickets/{ticket_id}/assignments", response_model=AssignmentOut, status_code=201)
-def post_assignment(ticket_id: UUID, body: AssignmentBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_assignment(ticket_id: UUID, body: AssignmentBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.assign")
     return JSONResponse(status_code=201, content=assign_contractor(session, principal.organization_id, ticket_id, body.contractor_profile_id, body.scope, principal.user_id))
 
 
 @router.post("/assignments/{assignment_id}/respond", response_model=RespondOut)
-def post_respond(assignment_id: UUID, body: RespondBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_respond(assignment_id: UUID, body: RespondBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.respond")
     return respond_assignment(session, principal.organization_id, assignment_id, principal.user_id, body.accept)
 
 
 @router.post("/work-orders/{work_order_id}/completion", response_model=CompletionOut)
-def post_completion(work_order_id: UUID, body: CompletionBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_completion(work_order_id: UUID, body: CompletionBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     _require_work_access(session, principal, work_order_id)
     result = complete_work(session, principal.organization_id, work_order_id, body.notes)
     result["request_id"] = "maintenance"
@@ -437,7 +437,7 @@ def post_completion(work_order_id: UUID, body: CompletionBody, principal: Princi
 
 
 @router.post("/work-orders/{work_order_id}/invoices", response_model=InvoiceOut, status_code=201)
-def post_work_invoice(work_order_id: UUID, body: InvoiceBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_work_invoice(work_order_id: UUID, body: InvoiceBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     _require_work_access(session, principal, work_order_id)
     if body.currency != "USD":
         problem(422, "UNSUPPORTED_CURRENCY", "Only USD cents are supported.")
@@ -446,19 +446,19 @@ def post_work_invoice(work_order_id: UUID, body: InvoiceBody, principal: Princip
 
 
 @router.post("/work-orders/{work_order_id}/estimates", response_model=EstimateOut)
-def post_estimate(work_order_id: UUID, body: EstimateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_estimate(work_order_id: UUID, body: EstimateBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     _require_work_access(session, principal, work_order_id)
     return record_estimate(session, principal.organization_id, work_order_id, body.estimate_cents)
 
 
 @router.post("/maintenance-tickets/{ticket_id}/transitions", response_model=TransitionOut)
-def post_transition(ticket_id: UUID, body: TransitionBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_transition(ticket_id: UUID, body: TransitionBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     return transition_ticket(session, principal.organization_id, ticket_id, body.action, body.reason, body.duplicate_of_id, body.status, principal.user_id)
 
 
 @router.post("/maintenance-tickets/{ticket_id}/entry-secrets", response_model=StoredOut)
-def post_secret(ticket_id: UUID, body: SecretBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_secret(ticket_id: UUID, body: SecretBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     stored = store_entry_code(session, principal.organization_id, ticket_id, body.code, request.app.state.settings.contact_key_bytes)
     stored["request_id"] = request_id_of(request)
@@ -466,7 +466,7 @@ def post_secret(ticket_id: UUID, body: SecretBody, request: Request, principal: 
 
 
 @router.post("/maintenance-tickets/{ticket_id}/accommodations", response_model=StoredOut)
-def post_note(ticket_id: UUID, body: NoteBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_note(ticket_id: UUID, body: NoteBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     stored = store_accommodation(session, principal.organization_id, ticket_id, body.note, request.app.state.settings.contact_key_bytes)
     stored["request_id"] = request_id_of(request)
@@ -474,7 +474,7 @@ def post_note(ticket_id: UUID, body: NoteBody, request: Request, principal: Prin
 
 
 @router.post("/maintenance-tickets/{ticket_id}/appointments", response_model=MaintenanceAppointmentOut, status_code=201)
-def post_appointment(ticket_id: UUID, body: AppointmentBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_appointment(ticket_id: UUID, body: AppointmentBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     viewer = can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles)
     if viewer not in {"manager", "tenant"}:
         problem(404, "NOT_FOUND", "Ticket not found.")
@@ -482,19 +482,19 @@ def post_appointment(ticket_id: UUID, body: AppointmentBody, principal: Principa
 
 
 @router.post("/maintenance-appointments/{appointment_id}/confirm", response_model=MaintenanceConfirmOut)
-def post_confirm(appointment_id: UUID, body: ConfirmBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_confirm(appointment_id: UUID, body: ConfirmBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     return confirm_appointment(session, principal.organization_id, appointment_id, body.entry_permission, body.notice_evidence, body.contractor_accepted)
 
 
 @router.post("/escalation-destinations", response_model=EscalationDestinationOut, status_code=201)
-def post_destination(body: DestinationBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_destination(body: DestinationBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     require_capability(principal, "maintenance.manage")
     return JSONResponse(status_code=201, content=add_destination(session, principal.organization_id, body.role, body.label, body.fail_next))
 
 
 @router.post("/leases/{lease_id}/parties", response_model=LeasePartyOut, status_code=201)
-def post_lease_party(lease_id: UUID, body: LeasePartyBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+def post_lease_party(lease_id: UUID, body: LeasePartyBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     if not (principal.allows("maintenance.manage") or principal.allows("leases.write")):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
     return JSONResponse(status_code=201, content=link_lease_party(session, principal.organization_id, lease_id, body.user_id))

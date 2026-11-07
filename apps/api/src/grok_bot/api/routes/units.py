@@ -28,7 +28,7 @@ def list_units_route(
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = None,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
 ) -> dict:
     require_capability(principal, "units.read")
     return list_units(
@@ -47,7 +47,7 @@ def create_unit_route(
     body: UnitWrite,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> JSONResponse:
     require_capability(principal, "units.create")
@@ -75,7 +75,7 @@ def patch_unit_route(
     body: UnitPatch,
     request: Request,
     principal: Principal = Depends(get_principal),
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     if_match: str | None = Header(default=None, alias="If-Match"),
 ) -> JSONResponse:
     require_capability(principal, "units.update")
