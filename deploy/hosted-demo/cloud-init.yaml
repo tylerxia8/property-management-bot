@@ -1,6 +1,6 @@
+#cloud-config
 # Ubuntu 24.04 LTS, dedicated demo server. Paste into DigitalOcean User Data.
 # Then follow docs/HOSTED_DEMO.md to configure the domain and site password.
-#cloud-config
 package_update: true
 packages:
   - docker.io
