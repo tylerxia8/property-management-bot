@@ -36,7 +36,7 @@ def main() -> None:
     engine.dispose()
     os.execvp(
         sys.executable,
-        [sys.executable, "-m", "uvicorn", "grok_bot.main:app", "--host", "0.0.0.0", "--port", "8000"],
+        [sys.executable, "-m", "uvicorn", "grok_bot.main:app", "--host", os.environ.get("API_HOST", "0.0.0.0"), "--port", "8000"],
     )
 
 

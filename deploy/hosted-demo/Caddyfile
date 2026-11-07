@@ -1,6 +1,0 @@
-{$DEMO_DOMAIN} {
-    basic_auth {
-        {$DEMO_USER} {$DEMO_PASSWORD_HASH}
-    }
-    reverse_proxy web:3000
-}

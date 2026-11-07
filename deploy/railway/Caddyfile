@@ -1,0 +1,11 @@
+{
+    admin off
+    auto_https off
+}
+
+:{$PORT:8080} {
+    basic_auth {
+        {$DEMO_USER} {$DEMO_PASSWORD_HASH}
+    }
+    reverse_proxy {$WEB_INTERNAL_ORIGIN}
+}
