@@ -5,7 +5,7 @@ from fastapi import Depends, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from grok_bot.auth.permissions import Principal
+from grok_bot.auth.permissions import Grant, Principal
 from grok_bot.auth.tokens import TokenError, verify_token
 from grok_bot.db import set_tenant
 from grok_bot.errors import problem
@@ -61,30 +61,34 @@ def principal_from_request(request: Request, session: Session) -> Principal:
     ).mappings().first()
     if user is None:
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
-    roles = session.execute(
+    grant_rows = session.execute(
         text(
             """
-            SELECT role
+            SELECT role, resource_type, resource_id
             FROM role_grants
             WHERE user_id = :user_id
               AND organization_id = :organization_id
-              AND resource_type IS NULL
-              AND resource_id IS NULL
               AND active_from <= clock_timestamp()
               AND (active_until IS NULL OR active_until > clock_timestamp())
-            ORDER BY role
+            ORDER BY role, resource_type NULLS FIRST, resource_id
             """
         ),
         {"user_id": user_id, "organization_id": organization_id},
-    ).scalars().all()
-    if not roles:
+    ).mappings().all()
+    if not grant_rows:
         problem(401, "UNAUTHENTICATED", "Sign-in is required.")
+    grants = tuple(
+        Grant(row["role"], row["resource_type"], row["resource_id"])
+        for row in grant_rows
+    )
+    roles = tuple(grant.role for grant in grants if grant.resource_type is None)
     return Principal(
         user_id=user["id"],
         organization_id=user["organization_id"],
         display_name=user["display_name"],
-        roles=tuple(roles),
+        roles=roles,
         auth_method="local_dev",
+        grants=grants,
     )
 
 
@@ -95,6 +99,22 @@ def get_principal(request: Request, session: Session = Depends(get_session)) -> 
 def require_capability(principal: Principal, capability: str) -> None:
     if not principal.allows(capability):
         problem(403, "FORBIDDEN", "You do not have access to this action.")
+
+
+def require_property(principal: Principal, capability: str, property_id: UUID) -> None:
+    if not principal.allows_resource(capability, "property", property_id):
+        problem(403, "FORBIDDEN", "You do not have access to this action.")
+
+
+def require_property_list(principal: Principal, capability: str) -> None:
+    if principal.allows(capability):
+        return
+    if any(
+        grant.resource_type == "property" and grant.resource_id is not None and principal.allows_resource(capability, "property", grant.resource_id)
+        for grant in principal.grants
+    ):
+        return
+    problem(403, "FORBIDDEN", "You do not have access to this action.")
 
 
 def require_version(if_match: str | None) -> int:

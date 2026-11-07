@@ -9,6 +9,8 @@ from grok_bot.api.deps import (
     get_session,
     request_id_of,
     require_capability,
+    require_property,
+    require_property_list,
     require_idempotency_key,
     require_version,
 )
@@ -28,7 +30,7 @@ def list_properties_route(
     principal: Principal = Depends(get_principal),
     session: Session = Depends(get_session),
 ) -> dict:
-    require_capability(principal, "properties.read")
+    require_property_list(principal, "properties.read")
     return list_properties(
         session,
         principal.organization_id,
@@ -67,7 +69,7 @@ def get_property_route(
     principal: Principal = Depends(get_principal),
     session: Session = Depends(get_session),
 ) -> JSONResponse:
-    require_capability(principal, "properties.read")
+    require_property(principal, "properties.read", property_id)
     body = get_property(session, principal.organization_id, property_id, request_id_of(request))
     return JSONResponse(status_code=200, content=body, headers={"ETag": f'"{body["version"]}"'})
 

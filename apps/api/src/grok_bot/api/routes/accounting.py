@@ -1,12 +1,12 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy import text
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from grok_bot.api.deps import get_principal, get_session, request_id_of, require_capability, require_idempotency_key
+from grok_bot.api.deps import get_principal, get_session, request_id_of, require_capability, require_idempotency_key, require_property, require_version
 from grok_bot.auth.permissions import Principal
 from grok_bot.domain.accounting import (
     allocate_receipt,
@@ -22,7 +22,14 @@ from grok_bot.domain.accounting import (
     create_rent_charge,
     declare_distributions,
     draft_reconciliation,
+    credit_invoice,
+    get_invoice,
     get_receipt,
+    list_bank_transactions,
+    list_property_ledger,
+    match_bank_deposit,
+    return_unallocated_receipt,
+    reverse_journal,
     import_bank_transactions,
     make_available,
     opening_reserve_cash,
@@ -484,6 +491,235 @@ def post_close_reconciliation(reconciliation_id: UUID, principal: Principal = De
 def post_period_close(body: PeriodCloseBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "period_closes.write")
     return close_period(session, principal.organization_id, body.period_start, body.period_end, body.reason)
+
+
+class ReasonAmountBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    amount_cents: int = Field(gt=0)
+    posting_date: date
+    reason: str
+
+
+class MatchBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    bank_transaction_id: UUID
+    deposit_batch_id: UUID
+    amount_cents: int = Field(gt=0)
+
+
+class LedgerItemOut(BaseModel):
+    id: str
+    posting_date: str
+    source_type: str
+    source_id: str
+    reversal_of_id: str | None
+
+
+class AccountOut(BaseModel):
+    code: str
+    amount_cents: int
+
+
+class OwnerOut(BaseModel):
+    owner_party_id: str
+    unrestricted_cents: int
+    reserve_cents: int
+
+
+class LedgerOut(BaseModel):
+    property_id: str
+    accounts: list[AccountOut]
+    owners: list[OwnerOut]
+    items: list[LedgerItemOut]
+    next_cursor: str | None
+    currency: str
+
+
+class ReversalOut(BaseModel):
+    id: str
+    reversal_of_id: str
+    reason: str
+    currency: str
+    posted: bool
+
+
+class BankItemOut(BaseModel):
+    id: str
+    bank_account_id: str
+    external_id: str
+    amount_cents: int
+    matched_cents: int
+    posted_on: str
+    currency: str
+
+
+class BankListOut(BaseModel):
+    items: list[BankItemOut]
+    next_cursor: str | None
+    currency: str
+
+
+class MatchOut(BaseModel):
+    id: str
+    bank_transaction_id: str
+    deposit_batch_id: str
+    amount_cents: int
+    currency: str
+    posted_journal: bool
+
+
+class ReceiptReturnOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: str
+    property_id: str
+    amount_cents: int
+    returned_cents: int
+    status: str
+    currency: str
+    return_journal_id: str
+
+
+class InvoiceOut(BaseModel):
+    id: str
+    property_id: str
+    status: str
+    total_cents: int
+    tax_cents: int
+    settled_cents: int
+    credited_cents: int
+    payable_journal_id: str | None
+    currency: str
+    credit_note_id: str | None = None
+    journal_id: str | None = None
+    original_payable_journal_id: str | None = None
+    return_journal_id: str | None = None
+
+
+@router.get("/properties/{property_id}/ledger", response_model=LedgerOut)
+def get_ledger(
+    property_id: UUID,
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = None,
+    principal: Principal = Depends(get_principal),
+    session: Session = Depends(get_session),
+):
+    require_property(principal, "ledger.read", property_id)
+    return list_property_ledger(session, principal.organization_id, property_id, limit, cursor)
+
+
+@router.post("/journals/{journal_id}/reversals", response_model=ReversalOut)
+def post_reversal(
+    journal_id: UUID,
+    body: ReasonAmountBody,
+    request: Request,
+    principal: Principal = Depends(get_principal),
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    require_capability(principal, "journals.reverse")
+    key = require_idempotency_key(idempotency_key)
+    payload = body.model_dump(mode="json")
+    result, _status = run_idempotent_create(
+        session,
+        principal,
+        key=key,
+        hashed=request_hash("POST", f"/v1/journals/{journal_id}/reversals", payload),
+        create=lambda: reverse_journal(session, principal.organization_id, journal_id, body.posting_date, body.reason),
+    )
+    del request
+    return result
+
+
+@router.get("/bank-transactions", response_model=BankListOut)
+def get_bank_transactions(
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = None,
+    principal: Principal = Depends(get_principal),
+    session: Session = Depends(get_session),
+):
+    require_capability(principal, "receipts.read")
+    return list_bank_transactions(session, principal.organization_id, limit, cursor)
+
+
+@router.post("/bank-matches", response_model=MatchOut)
+def post_bank_match(
+    body: MatchBody,
+    request: Request,
+    principal: Principal = Depends(get_principal),
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    require_capability(principal, "bank_matches.write")
+    key = require_idempotency_key(idempotency_key)
+    payload = body.model_dump(mode="json")
+    result, _status = run_idempotent_create(
+        session,
+        principal,
+        key=key,
+        hashed=request_hash("POST", "/v1/bank-matches", payload),
+        create=lambda: match_bank_deposit(session, principal.organization_id, body.bank_transaction_id, body.deposit_batch_id, body.amount_cents),
+    )
+    del request
+    return result
+
+
+@router.post("/receipts/{receipt_id}/returns", response_model=ReceiptReturnOut)
+def post_receipt_return(
+    receipt_id: UUID,
+    body: ReasonAmountBody,
+    request: Request,
+    principal: Principal = Depends(get_principal),
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    preview = get_receipt(session, principal.organization_id, receipt_id)
+    require_property(principal, "receipts.write", UUID(preview["property_id"]))
+    key = require_idempotency_key(idempotency_key)
+    payload = body.model_dump(mode="json")
+    result, _status = run_idempotent_create(
+        session,
+        principal,
+        key=key,
+        hashed=request_hash("POST", f"/v1/receipts/{receipt_id}/returns", payload),
+        create=lambda: return_unallocated_receipt(session, principal.organization_id, receipt_id, body.amount_cents, body.posting_date),
+    )
+    del request
+    return result
+
+
+@router.get("/invoices/{invoice_id}", response_model=InvoiceOut)
+def get_invoice_route(invoice_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    row = get_invoice(session, principal.organization_id, invoice_id)
+    require_property(principal, "invoices.read", UUID(row["property_id"]))
+    return row
+
+
+@router.post("/invoices/{invoice_id}/credit-notes", response_model=InvoiceOut)
+def post_credit_note(
+    invoice_id: UUID,
+    body: ReasonAmountBody,
+    request: Request,
+    principal: Principal = Depends(get_principal),
+    session: Session = Depends(get_session),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    if_match: str | None = Header(default=None, alias="If-Match"),
+):
+    version = require_version(if_match)
+    current = get_invoice(session, principal.organization_id, invoice_id)
+    require_property(principal, "journals.reverse", UUID(current["property_id"]))
+    if int(version) != int(session.execute(text("SELECT version FROM invoices WHERE id = :id"), {"id": invoice_id}).scalar()):
+        problem(409, "VERSION_CONFLICT", "The invoice version does not match If-Match.")
+    key = require_idempotency_key(idempotency_key)
+    payload = body.model_dump(mode="json")
+    result, _status = run_idempotent_create(
+        session,
+        principal,
+        key=key,
+        hashed=request_hash("POST", f"/v1/invoices/{invoice_id}/credit-notes", payload),
+        create=lambda: credit_invoice(session, principal.organization_id, invoice_id, body.amount_cents, body.posting_date, body.reason),
+    )
+    del request
+    return result
 
 
 @router.get("/parties")

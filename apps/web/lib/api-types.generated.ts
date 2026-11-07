@@ -1,14 +1,19 @@
 // Generated from the FastAPI OpenAPI document by apps/api/scripts/generate_api_types.py.
 // Do not edit by hand.
 //
-// Component schemas: 67.
-// Success responses with a schema: 6.
+// Component schemas: 85.
+// Success responses with a schema: 18.
 // Success responses without a schema, typed as unknown: 97.
 // Those unknown responses are omitted from the route declaration, not filled in here.
 export const API_VERSION = "0.1.0";
 
 export interface AccessBody {
   evidence: string;
+}
+
+export interface AccountOut {
+  amount_cents: number;
+  code: string;
 }
 
 export interface AgreementBody {
@@ -21,6 +26,19 @@ export interface AgreementBody {
   reserve_target_total_cents?: number | null;
   responsibility_mode?: string;
   start_date: string;
+}
+
+export interface AlertBody {
+  fail?: boolean;
+  kind: string;
+}
+
+export interface AlertOut {
+  delivered: boolean;
+  delivered_at?: string | null;
+  id?: string | null;
+  processed?: Record<string, unknown>[] | null;
+  status?: string | null;
 }
 
 export interface AllocationBody {
@@ -58,6 +76,22 @@ export interface BankImportBody {
   csv_text?: string | null;
   format?: string | null;
   transactions?: BankTransactionBody[];
+}
+
+export interface BankItemOut {
+  amount_cents: number;
+  bank_account_id: string;
+  currency: string;
+  external_id: string;
+  id: string;
+  matched_cents: number;
+  posted_on: string;
+}
+
+export interface BankListOut {
+  currency: string;
+  items: BankItemOut[];
+  next_cursor: string | null;
 }
 
 export interface BankTransactionBody {
@@ -98,6 +132,20 @@ export interface DraftBody {
 
 export interface EstimateBody {
   estimate_cents: number;
+}
+
+export interface EvidenceBody {
+  posting_date?: string | null;
+  reference: string;
+}
+
+export interface EvidenceOut {
+  bank_contacted?: boolean | null;
+  id: string;
+  kind: string;
+  reference: string;
+  settled: boolean;
+  simulator: boolean;
 }
 
 export interface FeeSettlementBody {
@@ -149,6 +197,22 @@ export interface InvoiceLineBody {
   unit_price_cents: number;
 }
 
+export interface InvoiceOut {
+  credit_note_id?: string | null;
+  credited_cents: number;
+  currency: string;
+  id: string;
+  journal_id?: string | null;
+  original_payable_journal_id?: string | null;
+  payable_journal_id: string | null;
+  property_id: string;
+  return_journal_id?: string | null;
+  settled_cents: number;
+  status: string;
+  tax_cents: number;
+  total_cents: number;
+}
+
 export interface LeaseBody {
   agreed_rent_cents: number;
   end_date: string;
@@ -158,6 +222,23 @@ export interface LeaseBody {
 
 export interface LeasePartyBody {
   user_id: string;
+}
+
+export interface LedgerItemOut {
+  id: string;
+  posting_date: string;
+  reversal_of_id: string | null;
+  source_id: string;
+  source_type: string;
+}
+
+export interface LedgerOut {
+  accounts: AccountOut[];
+  currency: string;
+  items: LedgerItemOut[];
+  next_cursor: string | null;
+  owners: OwnerOut[];
+  property_id: string;
 }
 
 export interface ListingBody {
@@ -172,6 +253,21 @@ export interface ListingBody {
 export interface LoginBody {
   password: string;
   subject: string;
+}
+
+export interface MatchBody {
+  amount_cents: number;
+  bank_transaction_id: string;
+  deposit_batch_id: string;
+}
+
+export interface MatchOut {
+  amount_cents: number;
+  bank_transaction_id: string;
+  currency: string;
+  deposit_batch_id: string;
+  id: string;
+  posted_journal: boolean;
 }
 
 export interface MessageBody {
@@ -195,6 +291,12 @@ export interface OpeningReserveBody {
 export interface OwnerLinkBody {
   party_id: string;
   user_id: string;
+}
+
+export interface OwnerOut {
+  owner_party_id: string;
+  reserve_cents: number;
+  unrestricted_cents: number;
 }
 
 export interface OwnershipBody {
@@ -276,6 +378,12 @@ export interface ProspectStart {
   listing_id?: string | null;
 }
 
+export interface ReasonAmountBody {
+  amount_cents: number;
+  posting_date: string;
+  reason: string;
+}
+
 export interface ReasonBody {
   reason?: string;
 }
@@ -292,6 +400,16 @@ export interface ReceiptBody {
   reference: string;
   service_period?: string | null;
   unit_id: string;
+}
+
+export interface ReceiptReturnOut {
+  amount_cents: number;
+  currency: string;
+  id: string;
+  property_id: string;
+  return_journal_id: string;
+  returned_cents: number;
+  status: string;
 }
 
 export interface ReconciliationBody {
@@ -316,6 +434,14 @@ export interface ResourceBody {
 
 export interface RespondBody {
   accept: boolean;
+}
+
+export interface ReversalOut {
+  currency: string;
+  id: string;
+  posted: boolean;
+  reason: string;
+  reversal_of_id: string;
 }
 
 export interface ReviewBody {
@@ -356,6 +482,18 @@ export interface StatementBody {
 export interface SubmitBody {
   posting_date: string;
   scripts?: Record<string, string>;
+}
+
+export interface SwitchBody {
+  calendar_enabled: boolean;
+  messaging_enabled: boolean;
+  payment_enabled: boolean;
+}
+
+export interface SwitchOut {
+  calendar_enabled: boolean;
+  messaging_enabled: boolean;
+  payment_enabled: boolean;
 }
 
 export interface TicketBody {
@@ -455,6 +593,15 @@ export interface grok_bot__api__routes__prospects__IntakeBody {
 }
 
 export interface apiPaths {
+  "/v1/alerts": {
+    post: {
+      requestBody: AlertBody;
+      responses: {
+        "200": AlertOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
   "/v1/appointments/holds": {
     post: {
       requestBody: HoldBody;
@@ -548,6 +695,23 @@ export interface apiPaths {
       requestBody: BankImportBody;
       responses: {
         "200": unknown;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/bank-matches": {
+    post: {
+      requestBody: MatchBody;
+      responses: {
+        "200": MatchOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/bank-transactions": {
+    get: {
+      responses: {
+        "200": BankListOut;
         "422": HTTPValidationError;
       };
     };
@@ -714,6 +878,14 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/invoices/{invoice_id}": {
+    get: {
+      responses: {
+        "200": InvoiceOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
   "/v1/invoices/{invoice_id}/approve": {
     post: {
       requestBody: PostingDateBody;
@@ -723,11 +895,43 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/invoices/{invoice_id}/credit-notes": {
+    post: {
+      requestBody: ReasonAmountBody;
+      responses: {
+        "200": InvoiceOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
   "/v1/invoices/{invoice_id}/simulated-settlement": {
     post: {
       requestBody: PostingDateBody;
       responses: {
         "200": unknown;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/journals/{journal_id}/reversals": {
+    post: {
+      requestBody: ReasonAmountBody;
+      responses: {
+        "200": ReversalOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/kill-switches": {
+    get: {
+      responses: {
+        "200": SwitchOut;
+      };
+    };
+    put: {
+      requestBody: SwitchBody;
+      responses: {
+        "200": SwitchOut;
         "422": HTTPValidationError;
       };
     };
@@ -987,6 +1191,24 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/payment-items/{item_id}/settlement-evidence": {
+    post: {
+      requestBody: EvidenceBody;
+      responses: {
+        "200": EvidenceOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/payment-items/{item_id}/submission-evidence": {
+    post: {
+      requestBody: EvidenceBody;
+      responses: {
+        "200": EvidenceOut;
+        "422": HTTPValidationError;
+      };
+    };
+  };
   "/v1/period-closes": {
     post: {
       requestBody: PeriodCloseBody;
@@ -1048,6 +1270,14 @@ export interface apiPaths {
       requestBody: PostingDateBody;
       responses: {
         "200": unknown;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/properties/{property_id}/ledger": {
+    get: {
+      responses: {
+        "200": LedgerOut;
         "422": HTTPValidationError;
       };
     };
@@ -1221,6 +1451,15 @@ export interface apiPaths {
       requestBody: AmountDateBody;
       responses: {
         "200": unknown;
+        "422": HTTPValidationError;
+      };
+    };
+  };
+  "/v1/receipts/{receipt_id}/returns": {
+    post: {
+      requestBody: ReasonAmountBody;
+      responses: {
+        "200": ReceiptReturnOut;
         "422": HTTPValidationError;
       };
     };

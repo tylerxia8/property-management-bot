@@ -316,6 +316,10 @@ def export_batch(session, organization_id, batch_id, actor_id, now) -> dict:
 
 
 def submit_batch(session, organization_id, batch_id, scripts: dict, settings, posting_date, now) -> dict:
+    from grok_bot.domain.controls import outbound_flags
+
+    if not outbound_flags(session, organization_id)["payment_enabled"]:
+        problem(409, "KILL_SWITCH", "Automatic payment submission is switched off.")
     if not settings.payment_simulator_enabled:
         problem(409, "PROVIDER_SUBMISSION_DISABLED", "No payment provider is configured. Nothing was submitted to a bank.")
     batch = _require_current_approval(session, organization_id, batch_id, now)
@@ -503,7 +507,65 @@ def get_batch(session, organization_id, batch_id) -> dict:
     }
 
 
-def _settle_item(session, organization_id, property_id, item, posting_date) -> None:
+def record_submission_evidence(session, organization_id, item_id, reference: str, now) -> dict:
+    if not reference.strip():
+        problem(422, "VALIDATION_ERROR", "Submission evidence needs a reference.")
+    item, batch = _item_with_batch(session, organization_id, item_id)
+    _require_current_approval(session, organization_id, batch["id"], now)
+    _event(session, organization_id, item, "MANUAL_SUBMISSION", reference, simulator=False)
+    return {
+        "id": str(item["id"]),
+        "kind": "MANUAL_SUBMISSION",
+        "simulator": False,
+        "settled": False,
+        "reference": reference,
+    }
+
+
+def record_settlement_evidence(session, organization_id, item_id, reference: str, posting_date, now) -> dict:
+    if not reference.strip():
+        problem(422, "VALIDATION_ERROR", "Settlement evidence needs a reference.")
+    item, batch = _item_with_batch(session, organization_id, item_id)
+    _require_current_approval(session, organization_id, batch["id"], now)
+    _settle_item(
+        session,
+        organization_id,
+        batch["property_id"],
+        item,
+        posting_date,
+        event_kind="MANUAL_SETTLEMENT",
+        simulator=False,
+        evidence=reference,
+    )
+    return {
+        "id": str(item["id"]),
+        "kind": "MANUAL_SETTLEMENT",
+        "simulator": False,
+        "settled": True,
+        "reference": reference,
+        "bank_contacted": False,
+    }
+
+
+def _item_with_batch(session, organization_id, item_id):
+    row = session.execute(
+        text(
+            """
+            SELECT i.*, b.property_id AS batch_property_id, b.id AS batch_row_id
+            FROM distribution_items AS i
+            JOIN distribution_batches AS b ON b.organization_id = i.organization_id AND b.id = i.batch_id
+            WHERE i.organization_id = :organization_id AND i.id = :id
+            """
+        ),
+        {"organization_id": organization_id, "id": item_id},
+    ).mappings().first()
+    if row is None:
+        problem(404, "NOT_FOUND", "Payment item not found.")
+    batch = _lock_batch(session, organization_id, row["batch_id"])
+    return row, batch
+
+
+def _settle_item(session, organization_id, property_id, item, posting_date, event_kind="SIMULATOR_SETTLED", simulator=True, evidence=None) -> None:
     existing = session.execute(
         text(
             """
@@ -550,7 +612,14 @@ def _settle_item(session, organization_id, property_id, item, posting_date) -> N
         text("UPDATE distribution_items SET status = 'SETTLED' WHERE organization_id = :organization_id AND id = :id"),
         {"organization_id": organization_id, "id": item["id"]},
     )
-    _event(session, organization_id, item, "SIMULATOR_SETTLED", "Simulator settlement journal. No bank was contacted.")
+    _event(
+        session,
+        organization_id,
+        item,
+        event_kind,
+        evidence or "Simulator settlement journal. No bank was contacted.",
+        simulator=simulator,
+    )
 
 
 def _consume_reserved(session, organization_id, item_id) -> None:
@@ -764,14 +833,14 @@ def _refresh_status(session, organization_id, batch_id) -> dict:
     return body
 
 
-def _event(session, organization_id, item, kind: str, evidence: str) -> None:
+def _event(session, organization_id, item, kind: str, evidence: str, simulator: bool = True) -> None:
     session.execute(
         text(
             """
             INSERT INTO payment_events (
               id, organization_id, item_id, provider_key, kind, simulator, evidence
             ) VALUES (
-              :id, :organization_id, :item_id, :provider_key, :kind, true, :evidence
+              :id, :organization_id, :item_id, :provider_key, :kind, :simulator, :evidence
             )
             """
         ),
@@ -781,6 +850,7 @@ def _event(session, organization_id, item, kind: str, evidence: str) -> None:
             "item_id": item["id"],
             "provider_key": item["provider_key"],
             "kind": kind,
+            "simulator": simulator,
             "evidence": evidence,
         },
     )

@@ -1028,6 +1028,340 @@ def get_receipt(session: Session, organization_id: UUID, receipt_id: UUID) -> di
     }
 
 
+def list_property_ledger(session: Session, organization_id: UUID, property_id: UUID, limit: int, cursor: str | None) -> dict:
+    found = session.execute(
+        text("SELECT id FROM properties WHERE organization_id = :organization_id AND id = :id"),
+        {"organization_id": organization_id, "id": property_id},
+    ).first()
+    if found is None:
+        problem(404, "NOT_FOUND", "Property not found.")
+    balances = property_balances(session, organization_id, property_id)
+    cursor_id = None if cursor is None else UUID(cursor)
+    rows = session.execute(
+        text(
+            """
+            SELECT DISTINCT e.id, e.posting_date, e.source_type, e.source_id, e.reversal_of_id, e.created_at
+            FROM journal_entries AS e
+            JOIN journal_lines AS l ON l.organization_id = e.organization_id AND l.journal_id = e.id
+            WHERE e.organization_id = :organization_id
+              AND l.property_id = :property_id
+              AND e.status = 'POSTED'
+              AND (CAST(:cursor_id AS uuid) IS NULL OR e.id > CAST(:cursor_id AS uuid))
+            ORDER BY e.id
+            LIMIT :limit
+            """
+        ),
+        {"organization_id": organization_id, "property_id": property_id, "cursor_id": cursor_id, "limit": limit + 1},
+    ).mappings().all()
+    page = rows[:limit]
+    return {
+        "property_id": str(property_id),
+        "accounts": balances["accounts"],
+        "owners": balances["owners"],
+        "items": [
+            {
+                "id": str(row["id"]),
+                "posting_date": row["posting_date"].isoformat(),
+                "source_type": row["source_type"],
+                "source_id": str(row["source_id"]),
+                "reversal_of_id": None if row["reversal_of_id"] is None else str(row["reversal_of_id"]),
+            }
+            for row in page
+        ],
+        "next_cursor": None if len(rows) <= limit or not page else str(page[-1]["id"]),
+        "currency": "USD",
+    }
+
+
+def reverse_journal(session: Session, organization_id: UUID, journal_id: UUID, posting_date: date, reason: str) -> dict:
+    if not reason.strip():
+        problem(422, "VALIDATION_ERROR", "A reversal requires a reason.")
+    original = session.execute(
+        text(
+            """
+            SELECT id, status FROM journal_entries
+            WHERE organization_id = :organization_id AND id = :id
+            """
+        ),
+        {"organization_id": organization_id, "id": journal_id},
+    ).mappings().first()
+    if original is None or original["status"] != "POSTED":
+        problem(404, "NOT_FOUND", "Posted journal not found.")
+    lines = session.execute(
+        text(
+            """
+            SELECT a.code AS account_code, l.side, l.amount_cents, l.property_id, l.owner_party_id,
+                   l.lease_id, l.bank_account_id, l.purpose
+            FROM journal_lines AS l
+            JOIN ledger_accounts AS a ON a.organization_id = l.organization_id AND a.id = l.account_id
+            WHERE l.organization_id = :organization_id AND l.journal_id = :journal_id
+            ORDER BY l.id
+            """
+        ),
+        {"organization_id": organization_id, "journal_id": journal_id},
+    ).mappings().all()
+    if not lines:
+        problem(409, "UNBALANCED_JOURNAL", "The journal has no lines to reverse.")
+    swapped = []
+    for line in lines:
+        swapped.append(
+            {
+                "account_code": line["account_code"],
+                "side": "CREDIT" if line["side"] == "DEBIT" else "DEBIT",
+                "amount_cents": int(line["amount_cents"]),
+                "property_id": "" if line["property_id"] is None else str(line["property_id"]),
+                "owner_party_id": "" if line["owner_party_id"] is None else str(line["owner_party_id"]),
+                "lease_id": "" if line["lease_id"] is None else str(line["lease_id"]),
+                "bank_account_id": "" if line["bank_account_id"] is None else str(line["bank_account_id"]),
+                "purpose": "" if line["purpose"] is None else line["purpose"],
+            }
+        )
+    reversal_id = _post(
+        session,
+        organization_id,
+        "JOURNAL_REVERSAL",
+        journal_id,
+        posting_date,
+        swapped,
+        reversal_of=journal_id,
+    )
+    return {
+        "id": str(reversal_id),
+        "reversal_of_id": str(journal_id),
+        "reason": reason,
+        "currency": "USD",
+        "posted": True,
+    }
+
+
+def list_bank_transactions(session: Session, organization_id: UUID, limit: int, cursor: str | None) -> dict:
+    cursor_id = None if cursor is None else UUID(cursor)
+    rows = session.execute(
+        text(
+            """
+            SELECT t.id, t.bank_account_id, t.external_id, t.amount_cents, t.posted_on,
+                   COALESCE(SUM(m.amount_cents), 0) AS matched_cents
+            FROM bank_transactions AS t
+            LEFT JOIN bank_matches AS m
+              ON m.organization_id = t.organization_id AND m.bank_transaction_id = t.id
+            WHERE t.organization_id = :organization_id
+              AND (CAST(:cursor_id AS uuid) IS NULL OR t.id > CAST(:cursor_id AS uuid))
+            GROUP BY t.id
+            ORDER BY t.id
+            LIMIT :limit
+            """
+        ),
+        {"organization_id": organization_id, "cursor_id": cursor_id, "limit": limit + 1},
+    ).mappings().all()
+    page = rows[:limit]
+    return {
+        "items": [
+            {
+                "id": str(row["id"]),
+                "bank_account_id": str(row["bank_account_id"]),
+                "external_id": row["external_id"],
+                "amount_cents": int(row["amount_cents"]),
+                "matched_cents": int(row["matched_cents"]),
+                "posted_on": row["posted_on"].isoformat(),
+                "currency": "USD",
+            }
+            for row in page
+        ],
+        "next_cursor": None if len(rows) <= limit or not page else str(page[-1]["id"]),
+        "currency": "USD",
+    }
+
+
+def match_bank_deposit(session: Session, organization_id: UUID, bank_transaction_id: UUID, deposit_batch_id: UUID, amount_cents: int) -> dict:
+    if amount_cents <= 0:
+        problem(422, "VALIDATION_ERROR", "A match amount must be positive.")
+    transaction = session.execute(
+        text(
+            """
+            SELECT id, bank_account_id, amount_cents FROM bank_transactions
+            WHERE organization_id = :organization_id AND id = :id
+            """
+        ),
+        {"organization_id": organization_id, "id": bank_transaction_id},
+    ).mappings().first()
+    batch = session.execute(
+        text(
+            """
+            SELECT id, bank_account_id, total_cents FROM deposit_batches
+            WHERE organization_id = :organization_id AND id = :id
+            FOR UPDATE
+            """
+        ),
+        {"organization_id": organization_id, "id": deposit_batch_id},
+    ).mappings().first()
+    if transaction is None or batch is None:
+        problem(404, "NOT_FOUND", "Bank transaction or deposit batch not found.")
+    if transaction["bank_account_id"] != batch["bank_account_id"]:
+        problem(409, "BANK_MISMATCH", "The deposit batch is not on this bank account.")
+    matched_txn = int(
+        session.execute(
+            text(
+                """
+                SELECT COALESCE(SUM(amount_cents), 0) FROM bank_matches
+                WHERE organization_id = :organization_id AND bank_transaction_id = :id
+                """
+            ),
+            {"organization_id": organization_id, "id": bank_transaction_id},
+        ).scalar()
+    )
+    matched_batch = int(
+        session.execute(
+            text(
+                """
+                SELECT COALESCE(SUM(amount_cents), 0) FROM bank_matches
+                WHERE organization_id = :organization_id AND deposit_batch_id = :id
+                """
+            ),
+            {"organization_id": organization_id, "id": deposit_batch_id},
+        ).scalar()
+    )
+    if matched_txn + amount_cents > abs(int(transaction["amount_cents"])):
+        problem(409, "BANK_MISMATCH", "The match exceeds the bank transaction.")
+    if matched_batch + amount_cents > int(batch["total_cents"]):
+        problem(409, "BANK_MISMATCH", "The match exceeds the deposit batch.")
+    match_id = uuid4()
+    session.execute(
+        text(
+            """
+            INSERT INTO bank_matches (
+              id, organization_id, bank_transaction_id, deposit_batch_id, amount_cents
+            ) VALUES (
+              :id, :organization_id, :bank_transaction_id, :deposit_batch_id, :amount_cents
+            )
+            """
+        ),
+        {
+            "id": match_id,
+            "organization_id": organization_id,
+            "bank_transaction_id": bank_transaction_id,
+            "deposit_batch_id": deposit_batch_id,
+            "amount_cents": amount_cents,
+        },
+    )
+    return {
+        "id": str(match_id),
+        "bank_transaction_id": str(bank_transaction_id),
+        "deposit_batch_id": str(deposit_batch_id),
+        "amount_cents": amount_cents,
+        "currency": "USD",
+        "posted_journal": False,
+    }
+
+
+def return_unallocated_receipt(session: Session, organization_id: UUID, receipt_id: UUID, amount_cents: int, posting_date: date) -> dict:
+    row = _lock_receipt(session, organization_id, receipt_id)
+    if amount_cents <= 0 or row["returned_cents"] + amount_cents > row["amount_cents"]:
+        problem(422, "VALIDATION_ERROR", "The return amount is outside the receipt.")
+    if row["allocated_cents"] > 0:
+        problem(
+            409,
+            "CONFIGURATION_REQUIRED",
+            "A return after allocation needs an agreement reversal template, which is not configured.",
+        )
+    purpose = "SECURITY_DEPOSIT" if row["method"] in DEPOSIT_METHODS else "RENT"
+    debit_account = "2070" if purpose == "SECURITY_DEPOSIT" else "2010"
+    source = {"property_id": row["property_id"], "lease_id": row["lease_id"]}
+    journal_id = _post(
+        session,
+        organization_id,
+        "RECEIPT_RETURN",
+        uuid4(),
+        posting_date,
+        [
+            _line(debit_account, "DEBIT", amount_cents, source, purpose),
+            _line("1010", "CREDIT", amount_cents, source, purpose),
+        ],
+    )
+    session.execute(
+        text(
+            """
+            UPDATE receipts
+            SET returned_cents = returned_cents + :amount
+            WHERE organization_id = :organization_id AND id = :id
+            """
+        ),
+        {"amount": amount_cents, "organization_id": organization_id, "id": receipt_id},
+    )
+    body = get_receipt(session, organization_id, receipt_id)
+    body["return_journal_id"] = str(journal_id)
+    return body
+
+
+def credit_invoice(session: Session, organization_id: UUID, invoice_id: UUID, amount_cents: int, posting_date: date, reason: str) -> dict:
+    if amount_cents <= 0 or not reason.strip():
+        problem(422, "VALIDATION_ERROR", "A credit note needs a positive amount and a reason.")
+    invoice = _lock_invoice(session, organization_id, invoice_id)
+    if invoice["payable_journal_id"] is None:
+        problem(409, "NOT_APPROVED", "A credit note requires the original payable journal.")
+    remaining = int(invoice["total_cents"]) - int(invoice["credited_cents"]) - int(invoice["settled_cents"])
+    if amount_cents > remaining:
+        problem(409, "INSUFFICIENT_FUNDS", "The credit exceeds the unsettled invoice remainder.")
+    owner_lines = session.execute(
+        text(
+            """
+            SELECT l.owner_party_id, l.amount_cents
+            FROM journal_lines AS l
+            JOIN ledger_accounts AS a ON a.organization_id = l.organization_id AND a.id = l.account_id
+            WHERE l.organization_id = :organization_id AND l.journal_id = :journal_id
+              AND a.code = '2020' AND l.side = 'DEBIT' AND l.owner_party_id IS NOT NULL
+            """
+        ),
+        {"organization_id": organization_id, "journal_id": invoice["payable_journal_id"]},
+    ).mappings().all()
+    weights = [(row["owner_party_id"], int(row["amount_cents"])) for row in owner_lines]
+    total_weight = sum(weight for _, weight in weights)
+    if total_weight <= 0:
+        problem(409, "CONFIGURATION_REQUIRED", "The payable journal has no owner lines to reverse.")
+    shares = {owner_id: (amount_cents * weight) // total_weight for owner_id, weight in weights}
+    leftover = amount_cents - sum(shares.values())
+    ranked = sorted(weights, key=lambda item: (-((amount_cents * item[1]) % total_weight), str(item[0])))
+    for index in range(leftover):
+        shares[ranked[index][0]] += 1
+    source = {"property_id": invoice["property_id"], "lease_id": None}
+    lines = [_line("2040", "DEBIT", amount_cents, source, "RENT")]
+    for owner_id, share in shares.items():
+        if share:
+            lines.append(_owner_line("2020", "CREDIT", share, source, owner_id))
+    note_id = uuid4()
+    journal_id = _post(session, organization_id, "CREDIT_NOTE", note_id, posting_date, lines)
+    session.execute(
+        text(
+            """
+            INSERT INTO credit_notes (id, organization_id, invoice_id, amount_cents, journal_id, reason)
+            VALUES (:id, :organization_id, :invoice_id, :amount_cents, :journal_id, :reason)
+            """
+        ),
+        {
+            "id": note_id,
+            "organization_id": organization_id,
+            "invoice_id": invoice_id,
+            "amount_cents": amount_cents,
+            "journal_id": journal_id,
+            "reason": reason,
+        },
+    )
+    session.execute(
+        text(
+            """
+            UPDATE invoices
+            SET credited_cents = credited_cents + :amount, version = version + 1
+            WHERE organization_id = :organization_id AND id = :id
+            """
+        ),
+        {"amount": amount_cents, "organization_id": organization_id, "id": invoice_id},
+    )
+    body = get_invoice(session, organization_id, invoice_id)
+    body["credit_note_id"] = str(note_id)
+    body["journal_id"] = str(journal_id)
+    body["original_payable_journal_id"] = str(invoice["payable_journal_id"])
+    return body
+
+
 def get_invoice(session: Session, organization_id: UUID, invoice_id: UUID) -> dict:
     row = session.execute(
         text(
@@ -1071,14 +1405,22 @@ def get_reconciliation(session: Session, organization_id: UUID, reconciliation_i
     }
 
 
-def _post(session: Session, organization_id: UUID, source_type: str, source_id: UUID, posting_date: date, lines: list[dict]) -> UUID:
+def _post(
+    session: Session,
+    organization_id: UUID,
+    source_type: str,
+    source_id: UUID,
+    posting_date: date,
+    lines: list[dict],
+    reversal_of: UUID | None = None,
+) -> UUID:
     encoded = json.dumps(lines, sort_keys=True, separators=(",", ":"), default=str)
     journal_id = session.execute(
         text(
             """
             SELECT app_post_journal(
               :organization_id, :source_type, :source_id, :posting_date,
-              CAST(:lines AS jsonb), :lines_hash, NULL
+              CAST(:lines AS jsonb), :lines_hash, :reversal_of
             )
             """
         ),
@@ -1089,6 +1431,7 @@ def _post(session: Session, organization_id: UUID, source_type: str, source_id: 
             "posting_date": posting_date,
             "lines": encoded,
             "lines_hash": hashlib.sha256(encoded.encode()).hexdigest(),
+            "reversal_of": reversal_of,
         },
     ).scalar()
     return journal_id

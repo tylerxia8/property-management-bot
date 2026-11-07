@@ -152,14 +152,17 @@ def confirm_tour(session, organization_id, appointment_id, actor_id, manager_loc
         ),
         {"status": status, "event_key": event_key, "organization_id": organization_id, "id": appointment_id},
     )
-    write_outbox(
-        session,
-        organization_id=organization_id,
-        event_type="CalendarSyncRequested",
-        dedup_key=f"calendar:{appointment_id}:{row['version']}",
-        property_id=row["property_id"],
-        payload={"appointment_id": str(appointment_id), "external_event_key": event_key, "external_event_created": False},
-    )
+    from grok_bot.domain.controls import outbound_flags
+
+    if outbound_flags(session, organization_id)["calendar_enabled"]:
+        write_outbox(
+            session,
+            organization_id=organization_id,
+            event_type="CalendarSyncRequested",
+            dedup_key=f"calendar:{appointment_id}:{row['version']}",
+            property_id=row["property_id"],
+            payload={"appointment_id": str(appointment_id), "external_event_key": event_key, "external_event_created": False},
+        )
     _reminders(session, organization_id, appointment_id, row["version"], row["prospect_id"])
     if status == "MANAGER_CONFIRMED":
         session.execute(

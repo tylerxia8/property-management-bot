@@ -18,6 +18,8 @@ from grok_bot.domain.distributions import (
     get_batch,
     issue_statement,
     record_return,
+    record_settlement_evidence,
+    record_submission_evidence,
     submit_batch,
     validate_batch,
 )
@@ -50,6 +52,21 @@ class SubmitBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     posting_date: date
     scripts: dict[str, str] = Field(default_factory=dict)
+
+
+class EvidenceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reference: str
+    posting_date: date | None = None
+
+
+class EvidenceOut(BaseModel):
+    id: str
+    kind: str
+    simulator: bool
+    settled: bool
+    reference: str
+    bank_contacted: bool | None = None
 
 
 class PostingBody(BaseModel):
@@ -138,6 +155,20 @@ def post_submit(batch_id: UUID, body: SubmitBody, request: Request, principal: P
 def post_cancel(batch_id: UUID, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
     require_capability(principal, "distributions.approve")
     return cancel_batch(session, principal.organization_id, batch_id)
+
+
+@router.post("/payment-items/{item_id}/submission-evidence", response_model=EvidenceOut)
+def post_submission_evidence(item_id: UUID, body: EvidenceBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    require_capability(principal, "distributions.approve")
+    return record_submission_evidence(session, principal.organization_id, item_id, body.reference, request.app.state.clock.now())
+
+
+@router.post("/payment-items/{item_id}/settlement-evidence", response_model=EvidenceOut)
+def post_settlement_evidence(item_id: UUID, body: EvidenceBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session)):
+    require_capability(principal, "distributions.approve")
+    if body.posting_date is None:
+        problem(422, "VALIDATION_ERROR", "Settlement evidence needs a posting date.")
+    return record_settlement_evidence(session, principal.organization_id, item_id, body.reference, body.posting_date, request.app.state.clock.now())
 
 
 @router.post("/distribution-items/{item_id}/returns")

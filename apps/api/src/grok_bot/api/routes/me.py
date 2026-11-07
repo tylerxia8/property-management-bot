@@ -13,6 +13,7 @@ def me(request: Request, principal: Principal = Depends(get_principal)) -> dict:
         "organization_id": str(principal.organization_id),
         "display_name": principal.display_name,
         "roles": list(principal.roles),
+        "grants": principal.grant_dicts(),
         "capabilities": principal.capabilities(),
         "auth_method": principal.auth_method,
         "production_oidc": False,

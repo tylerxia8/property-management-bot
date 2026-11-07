@@ -42,7 +42,7 @@ test("manager export does not settle and owner sees only their statement", async
   await expect(page.getByText("Duplicate download")).toBeVisible();
   await expect(page.getByText("Export settled: false")).toBeVisible();
   await page.getByRole("button", { name: "Submit to provider" }).click();
-  await expect(page.getByText("PROVIDER_SUBMISSION_DISABLED")).toBeVisible();
+  await expect(page.getByText("KILL_SWITCH")).toBeVisible();
   await page.screenshot({ path: "test-results/distribution-export.png", fullPage: true });
 
   await page.getByRole("button", { name: "Sign out" }).click();

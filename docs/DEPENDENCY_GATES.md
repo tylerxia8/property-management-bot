@@ -55,11 +55,11 @@ These do not wait on a bank, an identity vendor, or an API key.
 | Gap | Current behavior |
 | --- | --- |
 | Celery and Redis | Not installed. PostgreSQL is the worker. Delivery is disabled. ADR 0011 |
-| Success response schemas | 97 success responses in the OpenAPI document have no schema, so the generated TypeScript types them as `unknown` |
-| Routes named in §9.2 and not mounted | `GET /properties/{id}/ledger`, `POST /journals/{id}/reversals`, `GET /bank-transactions`, `POST /bank-matches`, `GET /invoices/{id}`, `POST /invoices/{id}/credit-notes`, `POST /payment-items/{id}/submission-evidence`, `POST /payment-items/{id}/settlement-evidence` |
-| Resource-scoped grants | Rows can store `resource_type`. Login and the worker ignore every grant whose `resource_type` is not null |
-| §13 alert routing, runbooks, and independent kill switches | `GET /v1/operations/queue` returns counts. `alerts_sent` is false. Messaging, calendar, and payment are not separate organization switches. Payment submission is disabled for the whole process |
-| §15.4 load test at the stated volume | Not run |
+| Success response schemas | The new contract routes declare Pydantic success models. Routes that still return an untyped dict keep `unknown` in the generated file. The generator does not invent those fields |
+| Routes named in §9.2 and not mounted | Mounted in revision `0007_contract_routes`: ledger, journal reversal, bank transactions, bank matches, invoice read, credit notes, receipt return, and payment-item submission and settlement evidence. See ADR 0012 |
+| Resource-scoped grants | A property grant authorizes that property only. It is not an organization-wide role. Bank queues stay organization-wide because those rows have no property |
+| §13 alert routing and kill switches | Alerts are PostgreSQL rows. Dispatch can retry and record a fallback. `delivered_at` stays null. Three outbound switches default off |
+| §15.4 load test at the stated volume | `test_local_read_load` ran 20 concurrent property-list reads and required every response to be 200 and p95 under 2 seconds. It did not create 100 properties or 1,000 messages, and it does not claim the 500 ms staging target |
 | §15.4 manual screen-reader pass | Not run. The axe scan is not that pass |
 | Cookie session and CSRF | Not implemented. The session is a bearer token. ADR 0011 |
 | §16 staging acceptance | Not run. There is no staging environment and no named reviewer sign-off |

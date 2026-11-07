@@ -1,5 +1,4 @@
 INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
 INFO  [alembic.runtime.migration] Will assume transactional DDL.
-INFO  [alembic.runtime.migration] Running upgrade 0005_phase5_distributions -> 0006_acceptance_hardening, Outbox retry columns and webhook inbox policy.
 alembic upgrade head and grok_bot.seed exited 0
 No broken requirements found.

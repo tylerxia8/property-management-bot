@@ -216,6 +216,7 @@ def test_fin_15_partial_failure_is_not_replayed(client, migrator_engine, simulat
         json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Partial simulator"},
     )
     assert approved.status_code == 200, approved.text
+    _enable_payment(client, world)
     failed = approved.json()["items"][3]["id"]
     first = client.post(
         f"/v1/distribution-batches/{drafted.json()['id']}/submit",
@@ -392,7 +393,17 @@ def _ready_payment(client, migrator_engine, amount):
     return world
 
 
+def _enable_payment(client, world):
+    response = client.put(
+        "/v1/kill-switches",
+        headers=world["manager"],
+        json={"messaging_enabled": False, "calendar_enabled": False, "payment_enabled": True},
+    )
+    assert response.status_code == 200, response.text
+
+
 def _approved(client, world):
+    _enable_payment(client, world)
     drafted = client.post(
         "/v1/distribution-batches",
         headers=world["accounting"],

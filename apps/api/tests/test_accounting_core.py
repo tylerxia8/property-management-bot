@@ -116,6 +116,11 @@ def test_fin_02_worked_example_exact_cents(client, migrator_engine, simulator):
         json={"snapshot_hash": validated.json()["snapshot_hash"], "reason": "Reviewed the worked example"},
     )
     assert approved.status_code == 200, approved.text
+    assert client.put(
+        "/v1/kill-switches",
+        headers=world["manager"],
+        json={"messaging_enabled": False, "calendar_enabled": False, "payment_enabled": True},
+    ).status_code == 200
     settled = client.post(
         f"/v1/distribution-batches/{drafted.json()['id']}/submit",
         headers=world["manager"],
@@ -365,6 +370,11 @@ def test_invoice_approval_posts_once_and_ai_cannot_post(client, migrator_engine)
         json=_receipt_body(world, 100),
     )
     assert denied.status_code == 403
+    assert client.put(
+        "/v1/kill-switches",
+        headers=world["manager"],
+        json={"messaging_enabled": False, "calendar_enabled": False, "payment_enabled": True},
+    ).status_code == 200
     submit = client.post(
         "/v1/distribution-batches/00000000-0000-4000-8000-00000000abcd/submit",
         headers=world["manager"],

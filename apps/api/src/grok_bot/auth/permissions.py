@@ -69,12 +69,20 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
 
 
 @dataclass(frozen=True)
+class Grant:
+    role: str
+    resource_type: str | None
+    resource_id: UUID | None
+
+
+@dataclass(frozen=True)
 class Principal:
     user_id: UUID
     organization_id: UUID
     display_name: str
     roles: tuple[str, ...]
     auth_method: str
+    grants: tuple[Grant, ...] = ()
 
     def capabilities(self) -> list[str]:
         granted: set[str] = set()
@@ -84,3 +92,23 @@ class Principal:
 
     def allows(self, capability: str) -> bool:
         return capability in self.capabilities()
+
+    def allows_resource(self, capability: str, resource_type: str, resource_id: UUID) -> bool:
+        if self.allows(capability):
+            return True
+        return any(
+            grant.resource_type == resource_type
+            and grant.resource_id == resource_id
+            and capability in ROLE_CAPABILITIES.get(grant.role, frozenset())
+            for grant in self.grants
+        )
+
+    def grant_dicts(self) -> list[dict]:
+        return [
+            {
+                "role": grant.role,
+                "resource_type": grant.resource_type,
+                "resource_id": None if grant.resource_id is None else str(grant.resource_id),
+            }
+            for grant in self.grants
+        ]

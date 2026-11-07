@@ -262,6 +262,11 @@ def test_pro_09_pending_calendar_retry_is_one_event(client, migrator_engine):
     _complete(client, staff, prospect["id"], income=300000)
     client.post(f"/v1/prospects/{prospect['id']}/evaluate", headers=staff["prospect"])
     hold = _hold(client, staff, prospect["id"])
+    assert client.put(
+        "/v1/kill-switches",
+        headers=staff["manager"],
+        json={"messaging_enabled": False, "calendar_enabled": True, "payment_enabled": False},
+    ).status_code == 200
     first = client.post(f"/v1/appointments/{hold['id']}/confirm", headers=staff["manager"], json={"manager_local": False})
     second = client.post(f"/v1/appointments/{hold['id']}/confirm", headers=staff["manager"], json={"manager_local": False})
     assert first.status_code == 200, first.text
