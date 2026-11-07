@@ -29,12 +29,19 @@ BEGIN
   ELSE
     ALTER ROLE grok_auth NOLOGIN NOSUPERUSER BYPASSRLS NOINHERIT;
   END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'grok_posting') THEN
+    CREATE ROLE grok_posting NOLOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT;
+  ELSE
+    ALTER ROLE grok_posting NOLOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT;
+  END IF;
 END
 $$;
 
 REVOKE grok_owner FROM grok_app;
 REVOKE grok_auth FROM grok_app;
 REVOKE grok_migrator FROM grok_app;
+REVOKE grok_posting FROM grok_app;
 
 SELECT format('CREATE DATABASE %I OWNER grok_owner', datname)
 FROM (VALUES ('grok_m0_test'), ('grok_m0_migration'), ('grok_m0_e2e')) AS needed(datname)

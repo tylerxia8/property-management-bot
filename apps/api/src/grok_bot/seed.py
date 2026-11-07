@@ -14,6 +14,9 @@ E2E_MANAGER = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3")
 E2E_ACCOUNTING = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4")
 E2E_TENANT = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5")
 E2E_PROPERTY = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6")
+E2E_UNIT = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7")
+E2E_PAYER = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8")
+E2E_LEASE = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9")
 
 
 def seed_e2e(migration_database_url: str, app_env: str) -> None:
@@ -29,6 +32,7 @@ def seed_e2e(migration_database_url: str, app_env: str) -> None:
                 """
                 TRUNCATE idempotency_records, inbox_events, outbox_events, audit_events,
                          contacts, units, properties, role_grants, users, parties, organizations
+                CASCADE
                 """
             )
         )
@@ -62,6 +66,36 @@ def seed_e2e(migration_database_url: str, app_env: str) -> None:
                 """
             ),
             {"id": E2E_PROPERTY, "organization_id": E2E_ORG, "created_by": E2E_ADMIN},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO units (id, organization_id, property_id, label)
+                VALUES (:id, :organization_id, :property_id, '1')
+                """
+            ),
+            {"id": E2E_UNIT, "organization_id": E2E_ORG, "property_id": E2E_PROPERTY},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO parties (id, organization_id, display_name, kind)
+                VALUES (:id, :organization_id, 'Elm Tenant', 'person')
+                """
+            ),
+            {"id": E2E_PAYER, "organization_id": E2E_ORG},
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO leases (
+                  id, organization_id, unit_id, start_date, end_date, agreed_rent_cents
+                ) VALUES (
+                  :id, :organization_id, :unit_id, '2026-01-01', '2027-01-01', 150000
+                )
+                """
+            ),
+            {"id": E2E_LEASE, "organization_id": E2E_ORG, "unit_id": E2E_UNIT},
         )
     engine.dispose()
 

@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
+from grok_bot.api.routes.accounting import router as accounting_router
 from grok_bot.api.routes.auth import router as auth_router
 from grok_bot.api.routes.health import router as health_router
 from grok_bot.api.routes.me import router as me_router
@@ -34,6 +35,7 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(me_router, prefix="/v1")
     app.include_router(properties_router, prefix="/v1")
     app.include_router(units_router, prefix="/v1")
+    app.include_router(accounting_router, prefix="/v1")
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
@@ -71,14 +73,8 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
 
     @app.exception_handler(IntegrityError)
     async def integrity_handler(request: Request, exc: IntegrityError):
-        return _error_response(
-            request,
-            409,
-            "CONSTRAINT_VIOLATION",
-            "The request conflicts with an existing record.",
-            {},
-            False,
-        )
+        code, message = _integrity_message(exc)
+        return _error_response(request, 409, code, message, {}, False)
 
     return app
 
@@ -98,6 +94,19 @@ def _error_response(request: Request, status: int, code: str, message: str, deta
         },
         headers={"X-Request-Id": request_id},
     )
+
+
+def _integrity_message(exc: IntegrityError) -> tuple[str, str]:
+    text = str(getattr(exc, "orig", exc))
+    if "closed posting period" in text:
+        return "CLOSED_PERIOD", "That posting date is in a closed period."
+    if "unbalanced journal" in text:
+        return "UNBALANCED_JOURNAL", "The journal does not balance."
+    if "immutable" in text or "append-only" in text:
+        return "POSTED_JOURNAL_IMMUTABLE", "Posted journal rows cannot be changed."
+    if "ownership weights must total" in text:
+        return "OWNERSHIP_WEIGHTS_INVALID", "Ownership weights must total 1000000."
+    return "CONSTRAINT_VIOLATION", "The request conflicts with an existing record."
 
 
 def _public_errors(errors: list) -> list[dict]:

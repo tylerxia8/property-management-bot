@@ -1,48 +1,66 @@
-INFO:     Started server process [8030]
+INFO:     Started server process [10358]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:49274 - "GET /v1/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49278 - "GET /v1/health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "OPTIONS /v1/auth/local/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "POST /v1/auth/local/login HTTP/1.1" 401 Unauthorized
-INFO:     127.0.0.1:51178 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "OPTIONS /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "OPTIONS /v1/properties HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties HTTP/1.1" 403 Forbidden
-INFO:     127.0.0.1:51178 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "POST /v1/properties HTTP/1.1" 201 Created
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "OPTIONS /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "OPTIONS /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa/units HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa/units HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "POST /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa/units HTTP/1.1" 201 Created
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa/units HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa/units HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51178 - "OPTIONS /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "PATCH /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "GET /v1/me HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51194 - "GET /v1/properties/ec54bbb0-3095-4361-ada8-0c0f91842faa/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47308 - "GET /v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47318 - "GET /v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "OPTIONS /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "OPTIONS /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "POST /v1/auth/local/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:50124 - "OPTIONS /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50130 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50130 - "OPTIONS /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "OPTIONS /v1/parties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "OPTIONS /v1/properties/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "OPTIONS /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50162 - "OPTIONS /v1/properties/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6/balances HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50130 - "GET /v1/parties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "OPTIONS /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50166 - "GET /v1/properties/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50166 - "OPTIONS /v1/units/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7/leases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50130 - "GET /v1/units/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7/leases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "GET /v1/properties/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6/balances HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50124 - "OPTIONS /v1/receipts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50130 - "POST /v1/receipts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:50134 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:50134 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "POST /v1/properties HTTP/1.1" 201 Created
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "OPTIONS /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "OPTIONS /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "POST /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4/units HTTP/1.1" 201 Created
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "POST /v1/auth/local/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4/units HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50134 - "OPTIONS /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "PATCH /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "GET /v1/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "GET /v1/properties/e2cb5c59-5685-4aec-8fff-32ee20015df4/units HTTP/1.1" 200 OK
 INFO:     Shutting down
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [8030]
+INFO:     Finished server process [10358]

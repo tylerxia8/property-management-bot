@@ -30,9 +30,9 @@ These are not PRD contradictions. M0 does not enable the capability.
 
 | Topic | Why it is pending | M0 behavior |
 | --- | --- | --- |
-| Direct-bank receipt journal legs | §4.2 requires a template and does not specify the debit and credit accounts or status mapping | No receipt path |
+| Direct-bank receipt journal legs | §4.2 requires a template and does not specify the debit and credit accounts or status mapping | `DIRECT_BANK` returns `DIRECT_BANK_TEMPLATE_UNCONFIGURED` |
 | Expense splits other than ownership weights | §4.4 mentions agreement responsibility rules and does not define a DSL | No allocator |
-| Bank CSV column layout | §9.2 requires an import and does not define columns | No importer |
+| Bank CSV column layout | §9.2 requires an import and does not define columns | CSV returns `BANK_IMPORT_FORMAT_UNCONFIGURED`. Canonical JSON import is implemented |
 | Outbound-clearing account | §4.3 mentions it and assigns no code | No payment submission |
 | Idempotency retention period | Not specified | Rows are kept; nothing expires them |
 | Step-up freshness window | §3 says “recent” without a duration | No step-up endpoint |

@@ -7,6 +7,8 @@ export default function HomePage() {
       <p>This shell talks to the API only. It does not open the database.</p>
       <p>
         <Link href="/login">Sign in</Link>
+        {" · "}
+        <Link href="/accounting">Receipts</Link>
       </p>
     </>
   );

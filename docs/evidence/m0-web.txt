@@ -1,5 +1,5 @@
 
-up to date, audited 38 packages in 318ms
+up to date, audited 38 packages in 401ms
 
 8 packages are looking for funding
   run `npm fund` for details
@@ -13,7 +13,7 @@ TAP version 13
 # Subtest: tests/no-database.test.mjs
 ok 1 - tests/no-database.test.mjs
   ---
-  duration_ms: 26.047812
+  duration_ms: 29.965428
   type: 'test'
   ...
 1..1
@@ -24,29 +24,30 @@ ok 1 - tests/no-database.test.mjs
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 31.245633
+# duration_ms 35.520986
 
 > grok-bot-web@0.1.0 build
 > next build
 
 ▲ Next.js 16.4.5 (Turbopack)
-✓ Running next.config.ts took 19ms
+✓ Running next.config.ts took 26ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 89ms
+✓ Compiled successfully in 99ms
   Running TypeScript ...
-  Finished TypeScript in 190ms ...
+  Finished TypeScript in 199ms ...
   Collecting page data using 3 workers ...
-  Generating static pages using 3 workers (0/5) ...
-  Generating static pages using 3 workers (1/5) 
-  Generating static pages using 3 workers (2/5) 
-  Generating static pages using 3 workers (3/5) 
-✓ Generating static pages using 3 workers (5/5) in 133ms
+  Generating static pages using 3 workers (0/6) ...
+  Generating static pages using 3 workers (1/6) 
+  Generating static pages using 3 workers (2/6) 
+  Generating static pages using 3 workers (4/6) 
+✓ Generating static pages using 3 workers (6/6) in 147ms
   Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
 ├ ○ /_not-found
+├ ○ /accounting
 ├ ○ /login
 ├ ○ /properties
 └ ƒ /properties/[id]
@@ -60,8 +61,9 @@ Route (app)
 > playwright test
 
 
-Running 1 test using 1 worker
+Running 2 tests using 2 workers
 
-  ✓  1 tests/shell.spec.ts:11:1 › local shell discloses dev auth and enforces role capabilities (1.2s)
+  ✓  1 tests/accounting.spec.ts:3:1 › accounting records a check that is not yet available (624ms)
+  ✓  2 tests/shell.spec.ts:11:1 › local shell discloses dev auth and enforces role capabilities (1.3s)
 
-  1 passed (2.1s)
+  2 passed (2.1s)

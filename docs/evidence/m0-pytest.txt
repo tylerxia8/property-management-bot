@@ -4,14 +4,15 @@ rootdir: /workspace/apps/api
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.16.0
-collected 28 items
+collected 42 items
 
-tests/test_api_authz.py ..........                                       [ 35%]
-tests/test_api_concurrency.py ..                                         [ 42%]
-tests/test_audit_and_outbox.py ...                                       [ 53%]
-tests/test_auth_fail_closed.py ....                                      [ 67%]
-tests/test_inbox_and_contacts.py ..                                      [ 75%]
-tests/test_migration_cycle.py .                                          [ 78%]
+tests/test_accounting_core.py ..............                             [ 33%]
+tests/test_api_authz.py ..........                                       [ 57%]
+tests/test_api_concurrency.py ..                                         [ 61%]
+tests/test_audit_and_outbox.py ...                                       [ 69%]
+tests/test_auth_fail_closed.py ....                                      [ 78%]
+tests/test_inbox_and_contacts.py ..                                      [ 83%]
+tests/test_migration_cycle.py .                                          [ 85%]
 tests/test_rls_and_fks.py ......                                         [100%]
 
 =============================== warnings summary ===============================
@@ -20,4 +21,4 @@ tests/test_rls_and_fks.py ......                                         [100%]
     from starlette.testclient import TestClient as TestClient  # noqa
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 28 passed, 1 warning in 1.50s =========================
+======================== 42 passed, 1 warning in 5.15s =========================

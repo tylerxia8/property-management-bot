@@ -53,6 +53,7 @@ def client(app, migrator_engine):
                 """
                 TRUNCATE idempotency_records, inbox_events, outbox_events, audit_events,
                          contacts, units, properties, role_grants, users, parties, organizations
+                CASCADE
                 """
             )
         )
