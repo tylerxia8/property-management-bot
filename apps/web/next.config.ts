@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   async rewrites() {
     if (!demoSample) return [];
-    return [{ source: "/v1/:path*", destination: "http://api:8000/v1/:path*" }];
+    const origin = process.env.API_INTERNAL_ORIGIN ?? "http://api:8000";
+    return [{ source: "/v1/:path*", destination: `${origin}/v1/:path*` }];
   },
 };
 

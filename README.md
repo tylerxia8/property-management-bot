@@ -17,3 +17,5 @@ For setup and the demo bundle, see [docs/SETUP.md](docs/SETUP.md) and the [demo 
 Business-specific fees, banking providers, landlord agreements, and legally reviewed screening policies remain explicit configuration and production prerequisites.
 
 To present the local fictional-data demo on Windows, start Docker Desktop and double-click `Start-Demo.cmd`. Follow the [demo walkthrough](docs/DEMO_WALKTHROUGH.md). The demo keeps live payments, messaging, and external calendars disabled.
+
+For the password-protected Railway website, deployment and operating instructions are in [Hosted demo](docs/HOSTED_DEMO.md).
