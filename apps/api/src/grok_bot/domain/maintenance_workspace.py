@@ -73,7 +73,7 @@ def ticket_details(session, organization_id, ticket_id):
         SELECT t.description, t.created_at, h.property_name, h.unit_label,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'body',m.body,'created_at',m.created_at) ORDER BY m.created_at,m.id)
           FROM ticket_messages m WHERE m.organization_id = t.organization_id AND m.ticket_id = t.id), '[]'::jsonb) AS messages,
-        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'status',m.status,'rejection_reason',m.rejection_reason) ORDER BY m.created_at,m.id)
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'status',m.status,'rejection_reason',m.rejection_reason,'content_type',COALESCE(m.detected_type,m.declared_content_type)) ORDER BY m.created_at,m.id)
           FROM media_objects m WHERE m.organization_id = t.organization_id AND m.ticket_id = t.id), '[]'::jsonb) AS media,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('status',m.status,'reason',m.reason,'created_at',m.created_at) ORDER BY m.created_at,m.id)
           FROM maintenance_status_updates m WHERE m.organization_id = t.organization_id AND m.ticket_id = t.id), '[]'::jsonb) AS history

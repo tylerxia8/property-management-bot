@@ -332,6 +332,14 @@ def test_mnt_05_rejects_bad_files_and_keeps_one_ticket(client, migrator_engine, 
     assert scanned["status"] == "READY", scanned
     assert scanned["scanner_name"] == "fixture-byte-scanner"
     assert scanned["video_understanding"] is False
+    detail = client.get(f"/v1/maintenance-tickets/{ticket['id']}", headers=staff["tenant"]).json()
+    media = next(m for m in detail["media"] if m["id"] == scanned["id"])
+    assert media["content_type"] == "video/mp4"
+    download = client.get(f"/v1/media/{scanned['id']}/download", headers=staff["tenant"]).json()
+    content = client.get(download["download_url"])
+    assert content.status_code == 200
+    assert content.headers["content-type"] == "video/mp4"
+    assert b"ftyp" in content.content[:32]
 
 
 def test_mnt_06_other_contractor_cannot_read_media_or_entry_code(client, migrator_engine, fixture_scanner):

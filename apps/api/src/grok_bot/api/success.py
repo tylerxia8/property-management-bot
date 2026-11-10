@@ -790,6 +790,7 @@ class MaintenanceMediaOut(APIModel):
     id: str
     status: str
     rejection_reason: str | None
+    content_type: str | None
 
 
 class MaintenanceHistoryOut(APIModel):

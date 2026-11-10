@@ -371,6 +371,8 @@ def request_upload(session, organization_id, ticket_id, declared_content_type: s
     ).scalar()
     if count >= 10:
         problem(422, "MEDIA_LIMIT", "This ticket already has the configured number of files.")
+    if declared_content_type not in {"image/jpeg", "image/png", "image/heic", "image/heif", "video/mp4", "video/quicktime"}:
+        problem(422, "MEDIA_TYPE", "Choose a JPEG, PNG, HEIC, HEIF, MP4 or MOV file.")
     if declared_content_type.startswith("image/") and size_bytes > 20 * 1024 * 1024:
         problem(422, "MEDIA_LIMIT", "Images are limited to 20 MB.")
     if declared_content_type.startswith("video/") and size_bytes > 200 * 1024 * 1024:
@@ -466,7 +468,7 @@ def store_and_scan(session, settings, organization_id, media_id, payload: bytes 
         },
     )
     if result.ready:
-        _set_field(session, organization_id, row["ticket_id"], "media", "PROVIDED", "Photo attached", None)
+        _set_field(session, organization_id, row["ticket_id"], "media", "PROVIDED", "Photo or video attached", None)
     return {"id": str(media_id), "status": status, "scan_code": result.code, "scanner_name": result.scanner_name, "ticket_id": str(row["ticket_id"])}
 
 
