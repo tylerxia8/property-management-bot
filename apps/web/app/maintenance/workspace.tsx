@@ -128,7 +128,7 @@ export default function MaintenanceWorkspace({
   const uploadInput = useRef<HTMLInputElement>(null);
   async function loadList(more = false) {
     const result = await read(
-      `/v1/maintenance-tickets${more && cursor ? `?before=${cursor}` : ""}`,
+      `/v1/maintenance-tickets?limit=${manager ? 30 : 8}${more && cursor ? `&before=${cursor}` : ""}`,
     );
     setItems((old) => (more ? [...old, ...result.items] : result.items));
     setCursor(result.next_cursor);
@@ -170,7 +170,7 @@ export default function MaintenanceWorkspace({
           setReady(true);
           return;
         }
-        const list = await read("/v1/maintenance-tickets");
+        const list = await read(`/v1/maintenance-tickets?limit=${manager ? 30 : 8}`);
         if (!active) return;
         setItems(list.items);
         setCursor(list.next_cursor);
@@ -935,20 +935,22 @@ export default function MaintenanceWorkspace({
             </section>
           ) : null}
           <section className="request-list-section">
-            <div className="section-heading">
+            <div className="section-heading request-list-heading">
               <div>
                 <h2>
                   {manager ? "All maintenance requests" : "Your requests"}
+                  <span className="request-count">{items.length}{cursor ? "+" : ""}</span>
                 </h2>
                 <p>
                   {manager
                     ? "Newest first. Emergency flags stay visible until a manager explicitly clears them."
-                    : "Your saved requests, including updates from your manager."}
+                    : "Track your repairs and hear back from your manager."}
                 </p>
               </div>
               <button
                 type="button"
-                className="secondary-button"
+                className="secondary-button request-refresh"
+                aria-label="Refresh requests"
                 disabled={!!busy}
                 onClick={() =>
                   void run("refresh", async () => {
@@ -958,7 +960,8 @@ export default function MaintenanceWorkspace({
                   })
                 }
               >
-                Refresh requests
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 17.9 17"/></svg>
+                {busy === "refresh" ? "Refreshing..." : "Refresh"}
               </button>
             </div>
             {items.length ? (
@@ -968,6 +971,7 @@ export default function MaintenanceWorkspace({
                     <button
                       className={`request-item ${ticket?.id === item.id ? "selected" : ""}`}
                       disabled={!!busy}
+                      aria-current={ticket?.id === item.id ? "true" : undefined}
                       onClick={() =>
                         void run("open", async () => {
                           show(
@@ -977,9 +981,12 @@ export default function MaintenanceWorkspace({
                         })
                       }
                     >
+                      <span className={`request-item-icon ${item.emergency ? "is-emergency" : ""}`} aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 6.5a5 5 0 0 0-6.6 6.6L3 18a2.1 2.1 0 0 0 3 3l4.9-4.9a5 5 0 0 0 6.6-6.6l-3 3-3-3 3-3Z"/></svg>
+                      </span>
                       <span className="request-item-main">
                         <span className="request-number">
-                          #{item.ticket_number} / {date(item.created_at)}
+                          Request #{item.ticket_number}<span aria-hidden="true"> &middot; </span>{categories[item.category as keyof typeof categories] || "Maintenance"}
                         </span>
                         <strong>{item.description}</strong>
                         <span>
@@ -988,16 +995,16 @@ export default function MaintenanceWorkspace({
                             : "Home awaiting verification"}
                         </span>
                       </span>
-                      <span className="ticket-badges">
-                        <span
-                          className={`status-pill ${item.emergency ? "danger" : ""}`}
-                        >
-                          {priority(item.priority)}
+                      <span className="request-item-state">
+                        <span className={`request-status ${["COMPLETED", "CLOSED"].includes(item.status) ? "is-complete" : ""}`}>
+                          <span className="request-status-dot" aria-hidden="true" />{label(item.status)}
                         </span>
-                        <span className="status-pill">
-                          {label(item.status)}
-                        </span>
+                        <span className="request-item-date">{date(item.created_at)}</span>
+                        {item.priority !== "ROUTINE_REVIEW_PENDING" ? (
+                          <span className={`request-priority ${item.emergency ? "is-emergency" : ""}`}>{priority(item.priority)}</span>
+                        ) : null}
                       </span>
+                      <span className="request-item-arrow" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6" /></svg></span>
                     </button>
                   </li>
                 ))}
