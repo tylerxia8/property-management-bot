@@ -117,28 +117,28 @@ export default function DemoEntry() {
         </div>
         <div className="house-art" aria-hidden="true">
           <svg viewBox="0 0 320 220" fill="none">
-            <circle cx="174" cy="105" r="97" fill="#d9e5c9" />
-            <path d="M40 195h248" stroke="#7a947b" strokeWidth="2" />
+            <circle cx="174" cy="105" r="97" fill="#e5c9d0" />
+            <path d="M40 195h248" stroke="#947a80" strokeWidth="2" />
             <path d="M89 99l74-59 76 59v95H89z" fill="#fffdf6" />
             <path
               d="M75 101l88-72 90 72"
-              stroke="#264e43"
+              stroke="#4e2630"
               strokeWidth="10"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <path d="M116 90h28v35h-28zm67 0h28v35h-28z" fill="#b7d0bf" />
-            <path d="M149 145h30v49h-30z" fill="#264e43" />
-            <path d="M107 146h26v25h-26zm88 0h26v25h-26z" fill="#b7d0bf" />
+            <path d="M116 90h28v35h-28zm67 0h28v35h-28z" fill="#d0b7bd" />
+            <path d="M149 145h30v49h-30z" fill="#4e2630" />
+            <path d="M107 146h26v25h-26zm88 0h26v25h-26z" fill="#d0b7bd" />
             <path
               d="M55 194v-47m0 23c-33-4-23-43-7-33 0-26 38-19 28 7 22 11 2 33-21 26zm216 24v-32"
-              stroke="#7a947b"
+              stroke="#947a80"
               strokeWidth="3"
             />
-            <circle cx="271" cy="149" r="20" fill="#7a947b" />
+            <circle cx="271" cy="149" r="20" fill="#947a80" />
             <path
               d="M135 206h59"
-              stroke="#b4c3ac"
+              stroke="#c3acb2"
               strokeWidth="3"
               strokeLinecap="round"
             />
