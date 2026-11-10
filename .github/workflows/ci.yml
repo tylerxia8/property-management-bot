@@ -33,7 +33,7 @@ jobs:
       - name: Install PostgreSQL and ffmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql postgresql-contrib ffmpeg
+          sudo apt-get install -y --no-install-recommends postgresql postgresql-contrib ffmpeg
           sudo systemctl enable --now postgresql
           pg_isready -h 127.0.0.1
           # psql runs as the postgres user and opens SQL files by path.
