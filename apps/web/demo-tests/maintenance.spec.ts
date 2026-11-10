@@ -216,7 +216,9 @@ test("tenant video upload is downloadable after refresh and visible to the manag
   await page.getByRole("textbox", { name: "What needs attention?", exact: true }).fill(description);
   await page.getByRole("button", { name: "Report issue", exact: true }).click();
   await expect(page.getByRole("heading", { name: /Ticket \d+/ })).toBeVisible();
-  await page.getByLabel("Attach a photo or video", { exact: false }).setInputFiles({
+  const uploadInput = page.getByLabel("Attach a photo or video", { exact: false });
+  await expect(uploadInput).toBeEnabled();
+  await uploadInput.setInputFiles({
     name: "repair.mov", mimeType: "video/quicktime",
     buffer: readFileSync(join(__dirname, "fixtures", "repair.mov")),
   });
