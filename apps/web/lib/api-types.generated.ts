@@ -710,6 +710,7 @@ export interface MaintenanceHomeOut {
 }
 
 export interface MaintenanceMediaOut {
+  content_type: string | null;
   id: string;
   rejection_reason: string | null;
   status: string;

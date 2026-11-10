@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 const photo = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAN0lEQVR4nO3RMQ0AMAzEQLf8OacQ3CWbD8BHcg4Mm+7qOh340A9UiVSJVIlUiVSJVIlUiVSJMA+hxgE/8m7SpQAAAABJRU5ErkJggg==",
@@ -169,14 +171,14 @@ test("lost report response retries safely, rejected photos keep the request, and
       buffer: Buffer.from("This is not an image"),
     });
   await expect(page.locator("main").getByRole("alert")).toContainText(
-    "This photo could not be accepted.",
+    "This attachment could not be accepted.",
   );
   await expect(page.getByRole("heading", { name: /Ticket \d+/ })).toBeVisible();
   await page
-    .getByRole("button", { name: "Continue without a photo", exact: true })
+    .getByRole("button", { name: "Continue without photos or videos", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText(
-    "Your request stays open without a photo.",
+    "Your request stays open without photos or videos.",
   );
   await page.getByLabel("Follow-up", { exact: true }).fill("I smell gas");
   await page
@@ -204,4 +206,28 @@ test("lost report response retries safely, rejected photos keep the request, and
       .filter((v) => ["serious", "critical"].includes(v.impact || ""))
       .map((v) => v.id),
   ).toEqual([]);
+});
+
+
+test("tenant video upload is downloadable after refresh and visible to the manager", async ({ page }) => {
+  const description = `Tap noise / video ${Date.now()}`;
+  await page.goto("/");
+  await page.getByRole("button", { name: "3. Report a repair", exact: true }).click();
+  await page.getByRole("textbox", { name: "What needs attention?", exact: true }).fill(description);
+  await page.getByRole("button", { name: "Report issue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Ticket \d+/ })).toBeVisible();
+  await page.getByLabel("Attach a photo or video", { exact: false }).setInputFiles({
+    name: "repair.mov", mimeType: "video/quicktime",
+    buffer: readFileSync(join(__dirname, "fixtures", "repair.mp4")),
+  });
+  await expect(page.getByRole("button", { name: "Download video 1", exact: true })).toBeVisible();
+  await page.reload();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download video 1", exact: true }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(/^maintenance-video-.*\.mp4$/);
+  expect(await file.failure()).toBeNull();
+  await page.getByRole("button", { name: "Open manager queue", exact: true }).click();
+  await page.getByRole("button").filter({ hasText: description }).click();
+  await expect(page.getByRole("button", { name: "Download video 1", exact: true })).toBeVisible();
 });

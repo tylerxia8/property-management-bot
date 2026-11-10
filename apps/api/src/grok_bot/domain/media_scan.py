@@ -6,6 +6,7 @@ an upload ready.
 """
 
 import hashlib
+import math
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -89,10 +90,17 @@ def scan_stored_file(
         except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
             return ScanResult(False, "IMAGE_DECODE_FAILED", detected, "The image could not be decoded.", SCANNER_NAME)
         return ScanResult(True, "FIXTURE_CHECKED", detected, None, SCANNER_NAME)
-    duration = _video_duration(path)
-    if duration is None or duration > MAX_VIDEO_SECONDS:
+    try:
+        duration = _video_duration(path)
+    except (subprocess.TimeoutExpired, OSError):
+        duration = None
+    if duration is None or not math.isfinite(duration) or duration <= 0 or duration > MAX_VIDEO_SECONDS:
         return ScanResult(False, "VIDEO_DURATION_UNVERIFIED", detected, "Video duration could not be accepted.", SCANNER_NAME)
-    if not _transcode_video(path):
+    try:
+        transcoded = _transcode_video(path)
+    except (subprocess.TimeoutExpired, OSError):
+        transcoded = False
+    if not transcoded:
         return ScanResult(False, "VIDEO_TRANSCODE_FAILED", detected, "A metadata-stripped video derivative was not produced.", SCANNER_NAME)
     return ScanResult(True, "FIXTURE_CHECKED", detected, None, SCANNER_NAME)
 

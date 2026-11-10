@@ -31,7 +31,7 @@ type Ticket = Summary & {
   safety_message: string | null;
   intake: { field_key: string; status: string; value_text: string | null }[];
   messages: { id: string; body: string; created_at: string }[];
-  media: { id: string; status: string; rejection_reason: string | null }[];
+  media: { id: string; status: string; rejection_reason: string | null; content_type: string | null }[];
   history: { status: string; reason: string | null; created_at: string }[];
 };
 const categories = {
@@ -47,7 +47,7 @@ const categories = {
 const fieldLabels: Record<string, string> = {
   exact_location: "Location",
   onset_frequency: "When it happens",
-  media: "Photos",
+  media: "Photos and videos",
   contact: "Contact preferences",
   access_windows: "Access availability",
   entry_safety: "Entry and safety",
@@ -282,11 +282,11 @@ export default function MaintenanceWorkspace({
           body: JSON.stringify({
             field_key: "media",
             status: "NOT_PRACTICAL",
-            reason: "Resident chose to continue without a photo.",
+            reason: "Resident chose to continue without photos or videos.",
           }),
         }),
       );
-      setNotice("Your request stays open without a photo.");
+      setNotice("Your request stays open without photos or videos.");
     });
   }
   async function handoff() {
@@ -309,17 +309,21 @@ export default function MaintenanceWorkspace({
   async function upload(file: File) {
     if (!ticket) return;
     await run("upload", async () => {
-      if (file.size > 20 * 1024 * 1024)
-        throw new Error("Choose a photo smaller than 20 MB.");
-      if (!/\.(jpe?g|png|heic|heif)$/i.test(file.name))
-        throw new Error("Choose a JPEG, PNG, HEIC or HEIF photo.");
+      const isVideo = /\.(mp4|mov)$/i.test(file.name);
+      if (!/\.(jpe?g|png|heic|heif|mp4|mov)$/i.test(file.name))
+        throw new Error("Choose a JPEG, PNG, HEIC, HEIF, MP4 or MOV file.");
+      const limit = (isVideo ? 200 : 20) * 1024 * 1024;
+      if (file.size > limit)
+        throw new Error(isVideo ? "Choose a video smaller than 200 MB and no longer than 2 minutes." : "Choose a photo smaller than 20 MB.");
       const bytes = await file.arrayBuffer();
       const hash = Array.from(
         new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
       )
         .map((n) => n.toString(16).padStart(2, "0"))
         .join("");
-      const contentType = /\.hei[cf]$/i.test(file.name)
+      const contentType = isVideo
+        ? (/\.mov$/i.test(file.name) ? "video/quicktime" : "video/mp4")
+        : /\.hei[cf]$/i.test(file.name)
         ? "image/heic"
         : /\.png$/i.test(file.name)
           ? "image/png"
@@ -343,7 +347,7 @@ export default function MaintenanceWorkspace({
       });
       if (!response.ok)
         throw new Error(
-          "The photo did not finish uploading. Your maintenance request is still saved.",
+          "The attachment did not finish uploading. Your maintenance request is still saved.",
         );
       const result = await read(`/v1/media/${slot.id}/complete`, {
         method: "POST",
@@ -351,25 +355,25 @@ export default function MaintenanceWorkspace({
       await refresh(ticket.id);
       if (result.status !== "READY")
         throw new Error(
-          "This photo could not be accepted. Try a different image or continue without a photo.",
+          "This attachment could not be accepted. Try another photo or a video no longer than 2 minutes, or continue without attachments.",
         );
       setNotice(
-        "Photo attached. Location metadata is removed from the viewable image.",
+        "Attachment saved. Metadata is removed from the downloadable copy.",
       );
     });
     if (uploadInput.current) uploadInput.current.value = "";
   }
-  async function openPhoto(id: string) {
+  async function openPhoto(id: string, isVideo: boolean) {
     await run("photo", async () => {
       const result = await read(`/v1/media/${id}/download`);
       const response = await fetch(`${API_BASE}${result.download_url}`);
       if (!response.ok)
-        throw new Error("This photo is unavailable. Please try again.");
+        throw new Error("This attachment is unavailable. Please try again.");
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `maintenance-photo-${id}.jpg`;
+      a.download = isVideo ? `maintenance-video-${id}.mp4` : `maintenance-photo-${id}.jpg`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
@@ -444,7 +448,7 @@ export default function MaintenanceWorkspace({
       </div>
       <p>
         {manager
-          ? "Review requests, inspect photos, and keep residents informed with clear status updates."
+          ? "Review requests, inspect photos and videos, and keep residents informed with clear status updates."
           : "Tell us what's wrong. We'll keep the details together so your property manager can plan the repair."}
       </p>
       <div className="maintenance-warning">
@@ -509,7 +513,7 @@ export default function MaintenanceWorkspace({
                 <span className="step-label">01 / THE PROBLEM</span>
                 <h3>A few details go a long way.</h3>
                 <p>
-                  Required fields are marked *. You can add photos after saving
+                  Required fields are marked *. You can add photos and videos after saving
                   your request.
                 </p>
               </div>
@@ -680,7 +684,7 @@ export default function MaintenanceWorkspace({
                     {ticket.emergency
                       ? "Seek emergency help now. Your report is saved, but this website cannot arrange emergency assistance."
                       : manager
-                        ? "Review the resident's details and photos, then save a status with a clear note. Arrange any dispatch or visit directly; this website does not send notifications."
+                        ? "Review the resident's details and attachments, then save a status with a clear note. Arrange any dispatch or visit directly; this website does not send notifications."
                         : ["COMPLETED", "CLOSED", "CANCELED"].includes(
                               ticket.status,
                             )
@@ -723,17 +727,17 @@ export default function MaintenanceWorkspace({
                 ) : null}
                 <section className="photo-section">
                   <h3>
-                    Photos <span className="optional-label">Optional</span>
+                    Photos and videos <span className="optional-label">Optional</span>
                   </h3>
                   <p>
-                    Only take photos if safe. Use fictional, non-sensitive
-                    photos in this public demo.
+                    Only record if safe. Use fictional, non-sensitive
+                    photos and videos in this public demo.
                   </p>
                   <ul className="photo-list">
                     {ticket.media?.map((m, i) => (
                       <li key={m.id}>
                         <span>
-                          Photo {i + 1} /{" "}
+                          {m.content_type?.startsWith("video/") ? "Video" : "Photo"} {i + 1} /{" "}
                           {m.status === "READY"
                             ? "Attached"
                             : m.status === "REJECTED"
@@ -744,14 +748,14 @@ export default function MaintenanceWorkspace({
                           <button
                             className="secondary-button"
                             disabled={!!busy}
-                            onClick={() => void openPhoto(m.id)}
+                            onClick={() => void openPhoto(m.id, !!m.content_type?.startsWith("video/"))}
                           >
-                            Download photo {i + 1}
+                            Download {m.content_type?.startsWith("video/") ? "video" : "photo"} {i + 1}
                           </button>
                         ) : (
                           <span>
                             {m.rejection_reason ||
-                              "Try attaching the photo again."}
+                              "Try attaching the file again."}
                           </span>
                         )}
                       </li>
@@ -760,12 +764,12 @@ export default function MaintenanceWorkspace({
                   {!manager && photosEnabled ? (
                     <label className="photo-upload">
                       {busy === "upload"
-                        ? "Uploading and checking photo..."
-                        : "Attach a photo"}
+                        ? "Uploading and checking attachment..."
+                        : "Attach a photo or video"}
                       <input
                         ref={uploadInput}
                         type="file"
-                        accept=".jpg,.jpeg,.png,.heic,.heif"
+                        accept=".jpg,.jpeg,.png,.heic,.heif,.mp4,.mov"
                         disabled={!!busy || ticket.media?.length >= 10}
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -773,13 +777,12 @@ export default function MaintenanceWorkspace({
                         }}
                       />
                       <small>
-                        JPEG, PNG, HEIC or HEIF. Up to 20 MB each; 10 photos per
-                        request.
+                        Photos: JPEG, PNG, HEIC or HEIF, up to 20 MB. Videos: MP4 or MOV, up to 200 MB and 2 minutes. Up to 10 files per request. Videos may take a minute to process; keep this page open.
                       </small>
                     </label>
                   ) : !manager ? (
                     <p>
-                      Photo attachments are unavailable in this environment.
+                      Photo and video attachments are unavailable in this environment.
                       Your report can continue without them.
                     </p>
                   ) : null}
@@ -790,7 +793,7 @@ export default function MaintenanceWorkspace({
                       disabled={!!busy}
                       onClick={() => void skipPhoto()}
                     >
-                      Continue without a photo
+                      Continue without photos or videos
                     </button>
                   ) : null}
                 </section>
