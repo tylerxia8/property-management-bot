@@ -56,9 +56,9 @@ class Settings(BaseSettings):
             raise ValueError("Maintenance notification number must use E.164 format")
         return value
 
-    @field_validator("twilio_organization_id", "twilio_service_user_id", mode="before")
+    @field_validator("twilio_organization_id", "twilio_service_user_id", "maintenance_history_organization_id", mode="before")
     @classmethod
-    def optional_twilio_identity(cls, value):
+    def optional_service_identity(cls, value):
         return None if value == "" else value
 
     @property
