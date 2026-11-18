@@ -10,7 +10,7 @@ from grok_bot.domain.money import allocate_by_weights, round_half_up_ratio
 from grok_bot.domain.records import write_audit, write_outbox
 from grok_bot.errors import problem
 
-RENT_METHODS = {"CHECK", "CASH"}
+RENT_METHODS = {"CHECK", "CASH", "ZELLE", "VENMO", "STRIPE_ACH"}
 DEPOSIT_METHODS = {"SECURITY_DEPOSIT_CHECK", "SECURITY_DEPOSIT_CASH"}
 
 
@@ -202,6 +202,20 @@ def create_receipt(session: Session, organization_id: UUID, actor_id: UUID, body
         problem(422, "VALIDATION_ERROR", "Receipt method is not supported.")
     if body.get("currency", "USD") != "USD":
         problem(422, "UNSUPPORTED_CURRENCY", "Only USD cents are supported.")
+    lease = session.execute(
+        text(
+            """
+            SELECT l.id
+            FROM leases AS l
+            JOIN units AS u ON u.organization_id = l.organization_id AND u.id = l.unit_id
+            WHERE l.organization_id = :organization_id AND l.id = :lease_id
+              AND u.id = :unit_id AND u.property_id = :property_id
+            """
+        ),
+        {"organization_id": organization_id, "lease_id": body["lease_id"], "unit_id": body["unit_id"], "property_id": body["property_id"]},
+    ).scalar()
+    if lease is None:
+        problem(422, "VALIDATION_ERROR", "The receipt property, unit, and lease must match.")
     receipt_id = uuid4()
     number = session.execute(
         text(
@@ -284,12 +298,25 @@ def create_receipt(session: Session, organization_id: UUID, actor_id: UUID, body
 
 def create_deposit(session: Session, organization_id: UUID, body: dict) -> dict:
     _lock_property(session, organization_id, body["property_id"])
+    receipt_ids = [UUID(str(item["receipt_id"])) for item in body["items"]]
+    if not receipt_ids or len(set(receipt_ids)) != len(receipt_ids):
+        problem(422, "VALIDATION_ERROR", "A deposit must contain distinct receipts.")
     total = 0
     locked = []
     for item in body["items"]:
         receipt_id = item["receipt_id"] if isinstance(item["receipt_id"], UUID) else UUID(str(item["receipt_id"]))
+        property_id = session.execute(
+            text("SELECT property_id FROM receipts WHERE organization_id = :organization_id AND id = :id"),
+            {"organization_id": organization_id, "id": receipt_id},
+        ).scalar()
+        if property_id != body["property_id"]:
+            problem(409, "DEPOSIT_EXCEEDS_RECEIPT", "A deposit can only include receipts from its property.")
         receipt = _lock_receipt(session, organization_id, receipt_id)
         amount = int(item["amount_cents"])
+        if amount <= 0:
+            problem(422, "VALIDATION_ERROR", "A deposit amount must be positive.")
+        if receipt["deposited_cents"] and receipt["bank_account_id"] != body["bank_account_id"]:
+            problem(409, "DEPOSIT_BANK_MISMATCH", "All slices of a receipt must use the same bank account.")
         remaining = receipt["amount_cents"] - receipt["deposited_cents"] - receipt["returned_cents"]
         if amount > remaining or receipt["property_id"] != body["property_id"]:
             problem(409, "DEPOSIT_EXCEEDS_RECEIPT", "The deposit slice exceeds the receipt that is still in custody.")
@@ -380,10 +407,10 @@ def make_available(session: Session, organization_id: UUID, receipt_id: UUID, am
             """
             INSERT INTO funding_lots (
               id, organization_id, property_id, bank_account_id, purpose, amount_cents,
-              source_type, source_id
+              source_type, source_id, receipt_id
             ) VALUES (
               :id, :organization_id, :property_id, :bank_account_id, :purpose, :amount_cents,
-              'RECEIPT_AVAILABLE', :source_id
+              'RECEIPT_AVAILABLE', :source_id, :receipt_id
             )
             """
         ),
@@ -395,6 +422,7 @@ def make_available(session: Session, organization_id: UUID, receipt_id: UUID, am
             "purpose": purpose,
             "amount_cents": amount_cents,
             "source_id": source_id,
+            "receipt_id": receipt_id,
         },
     )
     available = receipt["available_cents"] + amount_cents
@@ -985,7 +1013,7 @@ def close_reconciliation(session: Session, organization_id: UUID, reconciliation
 
 
 def property_balances(session: Session, organization_id: UUID, property_id: UUID) -> dict:
-    codes = ["1010", "1020", "1030", "1040", "2010", "2020", "2030", "2040", "2050", "2060", "2070"]
+    codes = ["1010", "1020", "1030", "1040", "1050", "2010", "2020", "2030", "2040", "2050", "2060", "2070"]
     balances = []
     for code in codes:
         balances.append(
@@ -1284,6 +1312,8 @@ def return_unallocated_receipt(session: Session, organization_id: UUID, receipt_
             "CONFIGURATION_REQUIRED",
             "PRD §4.6 says a return after allocation and before payout reverses source allocations and fee accruals according to the agreement. The agreement does not specify those legs, so no reversal is posted.",
         )
+    if amount_cents > row["amount_cents"] - row["deposited_cents"] - row["returned_cents"]:
+        problem(409, "CONFIGURATION_REQUIRED", "A deposited receipt requires a bank reversal workflow; no custody reversal was posted.")
     purpose = "SECURITY_DEPOSIT" if row["method"] in DEPOSIT_METHODS else "RENT"
     debit_account = "2070" if purpose == "SECURITY_DEPOSIT" else "2010"
     source = {"property_id": row["property_id"], "lease_id": row["lease_id"]}
@@ -1513,6 +1543,13 @@ def _lock_property(session: Session, organization_id: UUID, property_id: UUID) -
 
 
 def _lock_receipt(session: Session, organization_id: UUID, receipt_id: UUID) -> dict:
+    property_id = session.execute(
+        text("SELECT property_id FROM receipts WHERE organization_id = :organization_id AND id = :id"),
+        {"organization_id": organization_id, "id": receipt_id},
+    ).scalar()
+    if property_id is None:
+        problem(404, "NOT_FOUND", "Receipt not found.")
+    _lock_property(session, organization_id, property_id)
     row = session.execute(
         text(
             """
@@ -1529,6 +1566,13 @@ def _lock_receipt(session: Session, organization_id: UUID, receipt_id: UUID) -> 
 
 
 def _lock_invoice(session: Session, organization_id: UUID, invoice_id: UUID) -> dict:
+    property_id = session.execute(
+        text("SELECT property_id FROM invoices WHERE organization_id = :organization_id AND id = :id"),
+        {"organization_id": organization_id, "id": invoice_id},
+    ).scalar()
+    if property_id is None:
+        problem(404, "NOT_FOUND", "Invoice not found.")
+    _lock_property(session, organization_id, property_id)
     row = session.execute(
         text(
             """
@@ -1711,7 +1755,7 @@ def _bank_ledger_cash(session: Session, organization_id: UUID, bank_account_id: 
 
 def _custodial_obligations(session: Session, organization_id: UUID) -> int:
     liabilities = sum(_account_balance(session, organization_id, code) for code in ("2010", "2020", "2030", "2040", "2050", "2060", "2070"))
-    receivables = _account_balance(session, organization_id, "1040")
+    receivables = _account_balance(session, organization_id, "1040") + _account_balance(session, organization_id, "1050")
     return liabilities - receivables
 
 
@@ -1719,19 +1763,30 @@ def _consume_rent_lots(session: Session, organization_id: UUID, property_id: UUI
     rows = session.execute(
         text(
             """
-            SELECT id, amount_cents - consumed_cents AS remaining
+            SELECT id, amount_cents - consumed_cents - reserved_cents AS remaining
             FROM funding_lots
             WHERE organization_id = :organization_id
               AND property_id = :property_id
               AND purpose = 'RENT'
-              AND consumed_cents < amount_cents
+              AND consumed_cents + reserved_cents < amount_cents
             ORDER BY id
             FOR UPDATE
             """
         ),
         {"organization_id": organization_id, "property_id": property_id},
     ).all()
-    if sum(row.remaining for row in rows) < amount:
+    unapplied = session.execute(
+        text(
+            """
+            SELECT coalesce(sum(available_cents - allocated_cents), 0)
+            FROM receipts
+            WHERE organization_id = :organization_id AND property_id = :property_id
+              AND method IN ('CHECK', 'CASH', 'ZELLE', 'VENMO', 'STRIPE_ACH')
+            """
+        ),
+        {"organization_id": organization_id, "property_id": property_id},
+    ).scalar()
+    if sum(row.remaining for row in rows) - unapplied < amount:
         problem(
             409,
             "INSUFFICIENT_FUNDS",
@@ -1747,7 +1802,7 @@ def _consume_rent_lots(session: Session, organization_id: UUID, property_id: UUI
                 """
                 UPDATE funding_lots
                 SET consumed_cents = consumed_cents + :take
-                WHERE id = :id AND consumed_cents + :take <= amount_cents
+                WHERE id = :id AND consumed_cents + reserved_cents + :take <= amount_cents
                 """
             ),
             {"take": take, "id": row.id},

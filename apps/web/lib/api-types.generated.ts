@@ -1,8 +1,8 @@
 // Generated from the FastAPI OpenAPI document by apps/api/scripts/generate_api_types.py.
 // Do not edit by hand.
 //
-// Component schemas: 198.
-// Success responses with a schema: 113.
+// Component schemas: 279.
+// Success responses with a schema: 152.
 // Success responses without a schema, typed as unknown: 0.
 // Those unknown responses are omitted from the route declaration, not filled in here.
 export const API_VERSION = "0.1.0";
@@ -14,6 +14,10 @@ export interface AccessBody {
 export interface AccessOut {
   access_recorded: boolean;
   id: string;
+}
+
+export interface AccountBody {
+  property_id: string;
 }
 
 export interface AccountOut {
@@ -104,7 +108,14 @@ export interface AppointmentOut {
   version: number;
 }
 
+export interface Approve {
+  action: string;
+  estimate_version: number;
+  spending_limit_cents: number;
+}
+
 export interface ApproveBody {
+  posting_date?: string | null;
   reason: string;
   snapshot_hash: string;
 }
@@ -123,6 +134,21 @@ export interface ApprovedBatchOut {
   total_cents: number;
 }
 
+export interface ArrangeRepair {
+  action: string;
+  ends_at: string;
+  estimate_cents?: number | null;
+  scope: string;
+  starts_at: string;
+  timezone: string;
+}
+
+export interface Assign {
+  action: string;
+  contractor_profile_id: string;
+  scope: string;
+}
+
 export interface AssignmentBody {
   contractor_profile_id: string;
   scope: string;
@@ -132,6 +158,19 @@ export interface AssignmentOut {
   assignment_id: string;
   status: string;
   work_order_id: string;
+}
+
+export interface Availability {
+  action: string;
+  windows: string[];
+}
+
+export interface BackgroundWorkerOut {
+  failure_count: number;
+  heartbeat_at: string | null;
+  last_error_type: string | null;
+  last_success_at: string | null;
+  status: string;
 }
 
 export interface BalanceOut {
@@ -185,6 +224,8 @@ export interface BankTransactionBody {
 
 export interface BatchItemOut {
   amount_cents: number;
+  channel?: "ZELLE" | "VENMO" | "STRIPE_ACH" | null;
+  destination_label?: string | null;
   destination_version: number | null;
   id: string;
   kind: string;
@@ -207,6 +248,25 @@ export interface BatchOut {
   total_cents: number;
 }
 
+export interface BridgeOut {
+  expires_at: string;
+  mode: "demo" | "workspace";
+  organization_id: string;
+  properties: PropertyLinkOut[];
+  source: string;
+}
+
+export interface CheckoutOut {
+  checkout_url: string;
+  rent_id: string;
+}
+
+export interface Complete {
+  action: string;
+  media_ids: string[];
+  notes: string;
+}
+
 export interface CompletionBody {
   notes?: string;
 }
@@ -216,6 +276,24 @@ export interface CompletionOut {
   request_id: string;
   status: string;
   work_order_id: string;
+}
+
+export interface ConfirmVisit {
+  action: string;
+  appointment_id: string;
+  entry_permission: "GRANTED" | "DENIED";
+}
+
+export interface ConnectionBody {
+  source: "guest_recovery" | "cleaner_scheduler";
+}
+
+export interface ConnectionOut {
+  expires_at: string;
+  mode: "demo" | "workspace";
+  organization_id: string;
+  source: string;
+  token: string;
 }
 
 export interface CreditNoteOut {
@@ -341,6 +419,12 @@ export interface EscalationOut {
   ticket_id: string;
 }
 
+export interface Estimate {
+  action: string;
+  estimate_cents: number;
+  scope: string;
+}
+
 export interface EstimateBody {
   estimate_cents: number;
 }
@@ -435,6 +519,15 @@ export interface HoldBody {
   resource_id: string;
   timezone: string;
   unit_id?: string | null;
+}
+
+export interface ImportBody {
+  conversation_id: string;
+  description: string;
+  external_property_id: string;
+  issue_id: string;
+  reservation_id: string;
+  source_fingerprint: string;
 }
 
 export interface ImportOut {
@@ -587,6 +680,107 @@ export interface InvoiceOut {
   total_cents: number;
 }
 
+export interface IssueEventOut {
+  actor_id: string | null;
+  before_status: string | null;
+  created_at: string;
+  id: string;
+  issue_id: string;
+  note: string;
+  organization_id: string;
+  source: string;
+  status: string;
+  ticket_id: string;
+  version: number;
+}
+
+export interface IssueOut {
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  created_at: string;
+  evidence: string;
+  id: string;
+  key: string;
+  organization_id: string;
+  status: string;
+  ticket_id: string;
+  title: string;
+  updated_at: string;
+  version: number;
+}
+
+export interface IssueUpdate {
+  note?: string | null;
+  status: "OPEN" | "WAITING_PARTS" | "RESOLUTION_REPORTED" | "TENANT_CONFIRMED";
+  version: number;
+}
+
+export interface IssuesOut {
+  events: IssueEventOut[];
+  items: IssueOut[];
+}
+
+export interface KnowledgeCreate {
+  instructions: string;
+  model?: string;
+  part_details?: string;
+  problem_key: string;
+  property_id: string;
+  reference_media_ids?: string[];
+  title: string;
+  verified?: boolean;
+}
+
+export interface KnowledgeEntry {
+  active: boolean;
+  created_at: string;
+  id: string;
+  instructions: string;
+  model: string;
+  part_details: string;
+  problem_key: string;
+  property_id: string;
+  reference_media_ids: string[];
+  title: string;
+  updated_at: string;
+  verified: boolean;
+  verified_at: string | null;
+  verified_by: string | null;
+  version: number;
+}
+
+export interface KnowledgeList {
+  approved_instructions: string[];
+  entries: KnowledgeEntry[];
+  problem_keys: string[];
+  properties: KnowledgeProperty[];
+  reference_media: KnowledgeReferenceMedia[];
+}
+
+export interface KnowledgePatch {
+  active?: boolean | null;
+  instructions?: string | null;
+  model?: string | null;
+  part_details?: string | null;
+  problem_key?: string | null;
+  reference_media_ids?: string[] | null;
+  title?: string | null;
+  verified?: boolean | null;
+  version: number;
+}
+
+export interface KnowledgeProperty {
+  id: string;
+  name: string;
+}
+
+export interface KnowledgeReferenceMedia {
+  content_type: string;
+  created_at: string;
+  id: string;
+  property_id: string;
+}
+
 export interface LeaseBody {
   agreed_rent_cents: number;
   end_date: string;
@@ -678,6 +872,26 @@ export interface LoginOut {
   user_id: string;
 }
 
+export interface MaintenanceAnalysisOut {
+  assistant_stage?: "triage" | "handoff" | null;
+  audio_analyzed: boolean;
+  category: string;
+  follow_up: string[];
+  historical_examples?: number;
+  images_analyzed: number;
+  issues?: MaintenanceIssueOut[];
+  model: string | null;
+  next_action: string;
+  plan_version?: number | null;
+  priority: string;
+  repair_steps?: string[];
+  source?: "rules" | "model" | null;
+  status: "ready" | "unavailable" | "failed" | "stale";
+  summary: string;
+  trade?: string | null;
+  video_frames_analyzed: number;
+}
+
 export interface MaintenanceAppointmentOut {
   entry_permission: string;
   id: string;
@@ -709,6 +923,28 @@ export interface MaintenanceHomeOut {
   unit_label: string;
 }
 
+export interface MaintenanceIssueOut {
+  evidence: string;
+  key: string;
+  status: "open" | "reported_resolved";
+  title: string;
+}
+
+export interface MaintenanceIssueRecordOut {
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  created_at: string;
+  evidence: string;
+  id: string;
+  key: string;
+  organization_id: string;
+  status: string;
+  ticket_id: string;
+  title: string;
+  updated_at: string;
+  version: number;
+}
+
 export interface MaintenanceMediaOut {
   content_type: string | null;
   id: string;
@@ -717,6 +953,7 @@ export interface MaintenanceMediaOut {
 }
 
 export interface MaintenanceMessageOut {
+  author_role?: "tenant" | "manager" | "contractor" | "system";
   body: string;
   created_at: string;
   id: string;
@@ -768,6 +1005,12 @@ export interface MeOut {
   user_id: string;
 }
 
+export interface Message {
+  action: string;
+  body: string;
+  media_ids?: string[];
+}
+
 export interface MessageBody {
   body: string;
   classifier_result?: string | null;
@@ -776,6 +1019,11 @@ export interface MessageBody {
 
 export interface NoteBody {
   note: string;
+}
+
+export interface OnboardingOut {
+  onboarding_url: string;
+  recipient_id: string;
 }
 
 export interface OpeningOut {
@@ -794,6 +1042,14 @@ export interface OpeningReserveBody {
   reason: string;
 }
 
+export interface OperationsOut {
+  background_worker: BackgroundWorkerOut;
+  properties: grok_bot__api__routes__maintenance_operations__PropertyOut[];
+  requests: RequestOut[];
+  worker_health: WorkerHealthOut;
+  workers: WorkerOut[];
+}
+
 export interface OperationsQueueOut {
   alerts_sent: boolean;
   approved_batches: number;
@@ -801,6 +1057,10 @@ export interface OperationsQueueOut {
   delivery_enabled: boolean;
   unassigned_emergency_tickets: number;
   unknown_payments: number;
+}
+
+export interface OutcomeBody {
+  outcome: "settle" | "timeout" | "fail";
 }
 
 export interface OwnerLinkBody {
@@ -864,6 +1124,31 @@ export interface PeriodOut {
   status: string;
 }
 
+export interface PhoneEventOut {
+  body: string;
+  channel: "SMS" | "VOICEMAIL";
+  created_at: string;
+  direction: "INBOUND" | "OUTBOUND";
+  from_number: string;
+  id: string;
+  recipient_kind: "RESIDENT" | "MAINTENANCE";
+  request_id?: string | null;
+  status: string;
+  ticket_id: string;
+  ticket_number: number;
+  to_number: string;
+}
+
+export interface PhoneInboxOut {
+  configured: boolean;
+  events: PhoneEventOut[];
+  maintenance_number: string | null;
+  mode: "simulated" | "twilio";
+  phone_number: string | null;
+  request_id: string;
+  simulation_enabled: boolean;
+}
+
 export interface PolicyBody {
   automatic_final_denial?: boolean;
   effective_at: string;
@@ -913,25 +1198,24 @@ export interface ProfileOut {
   trades: string;
 }
 
-export interface PropertyOut {
-  address_line1: string;
-  address_line2: string | null;
-  city: string;
-  country_code: string;
-  created_at: string;
-  id: string;
+export interface PropertyBody {
+  property_id: string;
+}
+
+export interface PropertyLinkBody {
+  external_property_id: string;
+  unit_id: string;
+}
+
+export interface PropertyLinkOut {
+  external_property_id: string;
+  label: string;
   name: string;
-  organization_id: string;
-  postal_code: string;
-  region: string;
-  request_id: string;
-  timezone: string;
-  unit_count: number;
-  version: number;
+  unit_id: string;
 }
 
 export interface PropertyPageOut {
-  items: PropertyOut[];
+  items: grok_bot__api__success__PropertyOut[];
   next_cursor: string | null;
   request_id: string;
 }
@@ -945,6 +1229,12 @@ export interface PropertyPatch {
   postal_code?: string | null;
   region?: string | null;
   timezone?: string | null;
+}
+
+export interface PropertyRepairsOut {
+  external_property_id: string;
+  has_more: boolean;
+  repairs: RepairOut[];
 }
 
 export interface PropertyWrite {
@@ -979,6 +1269,11 @@ export interface QuarantineOut {
   id: string;
   request_id: string;
   status: string;
+}
+
+export interface Reason {
+  action: "decline" | "reject_estimate" | "reopen" | "resolve_self";
+  reason: string;
 }
 
 export interface ReasonAmountBody {
@@ -1055,6 +1350,14 @@ export interface ReceiptReturnOut {
   verified_cents: number;
 }
 
+export interface RecipientBody {
+  party_id: string;
+}
+
+export interface ReconcileBody {
+  posting_date: string;
+}
+
 export interface ReconciliationBody {
   bank_account_id: string;
   period_end: string;
@@ -1074,6 +1377,15 @@ export interface ReconciliationOut {
   status: string;
 }
 
+export interface RefreshBody {
+  posting_date: string;
+}
+
+export interface ReimbursementBody {
+  posting_date: string;
+  topup_id: string;
+}
+
 export interface RentChargeBody {
   amount_cents: number;
   description: string;
@@ -1087,6 +1399,32 @@ export interface RentChargeOut {
   id: string;
   journal_posted: boolean;
   request_id: string;
+}
+
+export interface RepairOut {
+  priority: string;
+  status: string;
+  ticket_id: string;
+  ticket_number: number;
+  updated_at: string;
+}
+
+export interface ReplyBody {
+  body: string;
+  ticket_id: string;
+}
+
+export interface RequestOut {
+  description: string;
+  id: string;
+  last_activity_at: string;
+  next_action: string;
+  notification_status: string | null;
+  owner_name: string | null;
+  priority: string;
+  reason_codes: string[];
+  status: string;
+  ticket_number: number;
 }
 
 export interface RescheduleOut {
@@ -1211,6 +1549,46 @@ export interface ShareOut {
   weight: number;
 }
 
+export interface Simple {
+  action: "accept" | "start_work" | "confirm_completion";
+}
+
+export interface SimulateBody {
+  body: string;
+  channel: "SMS" | "VOICEMAIL";
+  from_number: string;
+}
+
+export interface SimulatedAccountOut {
+  balance_cents: number;
+  id: string;
+  next_outcome: "settle" | "timeout" | "fail";
+  property_id: string;
+  property_name: string;
+}
+
+export interface SimulatedBankOut {
+  accounts: SimulatedAccountOut[];
+  bank_contacted: boolean;
+  batches: BatchOut[];
+  enabled: boolean;
+  simulator: boolean;
+  transactions: SimulatedTransactionOut[];
+}
+
+export interface SimulatedTransactionOut {
+  account_id: string;
+  amount_cents: number;
+  channel: "ZELLE" | "VENMO";
+  created_at: string;
+  id: string;
+  item_id: string | null;
+  kind: "RECEIPT" | "PAYOUT";
+  receipt_id: string | null;
+  reference: string;
+  status: "SETTLED" | "FAILED";
+}
+
 export interface SlotOut {
   ends_at: string;
   resource_id: string;
@@ -1222,6 +1600,16 @@ export interface SlotPageOut {
   configuration: string;
   items: SlotOut[];
   timezone: string;
+}
+
+export interface SourceRepairOut {
+  issue_id: string;
+  priority: string;
+  source_fingerprint: string;
+  status: string;
+  ticket_id: string;
+  ticket_number: number;
+  updated_at: string;
 }
 
 export interface StatementAccountOut {
@@ -1274,7 +1662,7 @@ export interface StatementSnapshotOut {
 
 export interface StepUpOut {
   id: string;
-  method: string;
+  method: "LOCAL_DEV_PASSWORD" | "SIMULATED_APPROVAL";
   production_oidc: boolean;
   request_id: string;
 }
@@ -1282,6 +1670,59 @@ export interface StepUpOut {
 export interface StoredOut {
   request_id: string;
   stored: boolean;
+}
+
+export interface StripeOut {
+  configured: boolean;
+  fee_payer: string;
+  payouts: StripePayoutOut[];
+  properties: StripePropertyOut[];
+  recipients: StripeRecipientOut[];
+  rents: StripeRentOut[];
+  sandbox: boolean;
+  webhook_configured: boolean;
+  worker_enabled: boolean;
+}
+
+export interface StripePayoutOut {
+  amount_cents: number;
+  batch_id: string;
+  id: string;
+  item_id: string;
+  last_error: string | null;
+  payout_id: string | null;
+  status: string;
+  transfer_id: string | null;
+}
+
+export interface StripePropertyOut {
+  bank_account_id: string;
+  property_id: string;
+  property_name: string;
+}
+
+export interface StripeRecipientOut {
+  account_id: string | null;
+  destination_id: string | null;
+  display_name: string;
+  party_id: string;
+  status: string;
+}
+
+export interface StripeRentOut {
+  amount_cents: number;
+  checkout_url: string | null;
+  fee_cents: number;
+  fee_due_cents: number;
+  id: string;
+  lease_id: string;
+  property_id: string;
+  status: string;
+}
+
+export interface StripeWebhookOut {
+  accepted: boolean;
+  sandbox: boolean;
 }
 
 export interface SubmitBatchOut {
@@ -1334,6 +1775,7 @@ export interface TicketBody {
 }
 
 export interface TicketContractorOut {
+  analysis?: MaintenanceAnalysisOut | null;
   category: string;
   created_at: string;
   description: string;
@@ -1347,6 +1789,7 @@ export interface TicketContractorOut {
   missing_fields: string[];
   model_adapter: string;
   next_questions: string[];
+  notification_status?: string | null;
   priority: string;
   property_name: string | null;
   questions_source: string;
@@ -1378,6 +1821,7 @@ export interface TicketPublicOut {
 }
 
 export interface TicketStaffOut {
+  analysis?: MaintenanceAnalysisOut | null;
   category: string;
   created_at: string;
   description: string;
@@ -1392,6 +1836,7 @@ export interface TicketStaffOut {
   missing_fields: string[];
   model_adapter: string;
   next_questions: string[];
+  notification_status?: string | null;
   priority: string;
   property_name: string | null;
   questions_source: string;
@@ -1466,6 +1911,14 @@ export interface UnitWrite {
   label: string;
 }
 
+export interface UnlinkBody {
+  external_property_id: string;
+}
+
+export interface UnlinkOut {
+  removed: boolean;
+}
+
 export interface UnverifiedBody {
   description: string;
   phone?: string | null;
@@ -1493,6 +1946,13 @@ export interface UploadOut {
   upload_url: string;
 }
 
+export interface Visit {
+  action: string;
+  ends_at: string;
+  starts_at: string;
+  timezone: string;
+}
+
 export interface WebhookOut {
   delivered: boolean;
   provider_event_id: string;
@@ -1500,7 +1960,180 @@ export interface WebhookOut {
   status: string;
 }
 
+export interface WorkerHealthOut {
+  failed_notifications: number;
+  history_configured: boolean;
+  pending_notifications: number;
+  phone_configured: boolean;
+  unknown_notifications: number;
+}
+
+export interface WorkerOut {
+  accepting_work: boolean;
+  active: boolean;
+  approved: boolean;
+  availability_note: string;
+  id: string;
+  max_open_jobs: number;
+  name: string;
+  open_jobs: number;
+  service_categories: string[];
+  service_property_ids: string[];
+  user_id: string | null;
+  version: number;
+}
+
+export interface WorkerUpdate {
+  accepting_work?: boolean | null;
+  approved?: boolean | null;
+  availability_note?: string | null;
+  max_open_jobs?: number | null;
+  service_categories?: ("leak" | "electrical" | "hvac" | "appliance" | "structural" | "pest_mold" | "lock" | "general")[] | null;
+  service_property_ids?: string[] | null;
+  version: number;
+}
+
+export interface WorkflowAppointment {
+  assignment_id: string | null;
+  contractor_accepted: boolean;
+  ends_at: string;
+  entry_granted_by: string | null;
+  entry_permission: string;
+  id: string;
+  starts_at: string;
+  status: string;
+  timezone: string;
+}
+
+export interface WorkflowAssignment {
+  contractor_profile_id: string;
+  created_at: string;
+  id: string;
+  scope: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  updated_at: string;
+}
+
+export interface WorkflowAvailability {
+  windows: string[];
+}
+
+export interface WorkflowBoardItem {
+  description: string;
+  due_flags: string[];
+  home: WorkflowHome | null;
+  id: string;
+  job_status: string;
+  next_step: string;
+  priority: string;
+  status: string;
+  ticket_number: number;
+  verification: string;
+}
+
+export interface WorkflowBoardOut {
+  contractors: WorkflowContractor[];
+  items: WorkflowBoardItem[];
+  next_cursor?: string | null;
+  role: "tenant" | "manager" | "contractor";
+}
+
+export interface WorkflowContractor {
+  id: string;
+  name: string;
+  trades: string;
+}
+
+export interface WorkflowDetailOut {
+  appointments: WorkflowAppointment[];
+  assignment: WorkflowAssignment | null;
+  availability: WorkflowAvailability;
+  available_actions: string[];
+  completion_media: WorkflowMedia[];
+  contractors: WorkflowContractor[];
+  escalation?: WorkflowEscalation | null;
+  follow_up_flags: string[];
+  issue_records?: MaintenanceIssueRecordOut[];
+  issues?: MaintenanceIssueOut[];
+  media: WorkflowMedia[];
+  messages: WorkflowMessage[];
+  role: "tenant" | "manager" | "contractor";
+  ticket: WorkflowTicket;
+  work_order: WorkflowWorkOrder | null;
+}
+
+export interface WorkflowEscalation {
+  acknowledged_at: string | null;
+  created_at: string;
+  id: string;
+  state: string;
+}
+
+export interface WorkflowHome {
+  property_name: string;
+  unit_label: string;
+}
+
+export interface WorkflowMedia {
+  content_type: string;
+  id: string;
+  status: string;
+}
+
+export interface WorkflowMessage {
+  author_role: "tenant" | "manager" | "contractor" | "system";
+  body: string;
+  created_at: string;
+  id: string;
+  media_ids: string[];
+  sender_label: string;
+}
+
+export interface WorkflowTicket {
+  description: string;
+  home: WorkflowHome | null;
+  id: string;
+  priority: string;
+  status: string;
+  ticket_number: number;
+  verification: string;
+}
+
+export interface WorkflowWorkOrder {
+  approved_at: string | null;
+  approved_by: string | null;
+  approved_version: number | null;
+  assignment_id: string;
+  authorization_state: string;
+  completed_at: string | null;
+  completion_media_ids: string[];
+  completion_notes: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  estimate_cents: number | null;
+  estimate_scope: string | null;
+  estimate_version: number;
+  id: string;
+  spending_limit_cents: number | null;
+  started_at: string | null;
+  updated_at: string;
+  workflow_managed: boolean;
+}
+
+export interface WorkspaceAppBody {
+  project: "guest_recovery" | "cleaner_scheduler";
+  url: string;
+}
+
+export interface WorkspaceOut {
+  apps: WorkspaceAppBody[];
+  mode: "demo" | "workspace";
+  properties: PropertyLinkOut[];
+  units: Record<string, string>[];
+}
+
 export interface grok_bot__api__routes__distributions__DestinationBody {
+  channel?: "ZELLE" | "VENMO";
   masked_label: string;
   party_id: string;
 }
@@ -1525,6 +2158,11 @@ export interface grok_bot__api__routes__maintenance__IntakeBody {
   value?: string | null;
 }
 
+export interface grok_bot__api__routes__maintenance_operations__PropertyOut {
+  id: string;
+  name: string;
+}
+
 export interface grok_bot__api__routes__prospects__ConfirmBody {
   manager_local?: boolean;
 }
@@ -1541,6 +2179,42 @@ export interface grok_bot__api__routes__prospects__IntakeBody {
   occupant_count?: number | null;
   pets_declared?: boolean | null;
   rental_history?: string | null;
+}
+
+export interface grok_bot__api__routes__simulated_bank__RentBody {
+  account_id: string;
+  amount_cents: number;
+  channel: "ZELLE" | "VENMO";
+  lease_id: string;
+  payer_party_id: string;
+  posting_date: string;
+  reference: string;
+}
+
+export interface grok_bot__api__routes__stripe__RentBody {
+  amount_cents: number;
+  lease_id: string;
+  payer_party_id: string;
+  posting_date: string;
+  property_id: string;
+  reference: string;
+}
+
+export interface grok_bot__api__success__PropertyOut {
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  country_code: string;
+  created_at: string;
+  id: string;
+  name: string;
+  organization_id: string;
+  postal_code: string;
+  region: string;
+  request_id: string;
+  timezone: string;
+  unit_count: number;
+  version: number;
 }
 
 export interface apiPaths {
@@ -1785,6 +2459,9 @@ export interface apiPaths {
   };
   "/v1/distribution-batches": {
     post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
       requestBody: DraftBody;
       responses: {
         "201": DraftBatchOut;
@@ -1815,6 +2492,7 @@ export interface apiPaths {
     post: {
       parameters: {
         batch_id: string;
+        "Idempotency-Key"?: string | null;
       };
       requestBody: ApproveBody;
       responses: {
@@ -2204,6 +2882,80 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/maintenance-bridge": {
+    get: {
+      responses: {
+        "200": BridgeOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-bridge/properties/{external_property_id}/repairs": {
+    get: {
+      parameters: {
+        external_property_id: string;
+      };
+      responses: {
+        "200": PropertyRepairsOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-bridge/requests": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: ImportBody;
+      responses: {
+        "200": SourceRepairOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-bridge/requests/{issue_id}": {
+    get: {
+      parameters: {
+        issue_id: string;
+      };
+      responses: {
+        "200": SourceRepairOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-connections": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: ConnectionBody;
+      responses: {
+        "200": ConnectionOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
   "/v1/maintenance-context": {
     get: {
       responses: {
@@ -2240,11 +2992,158 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/maintenance-knowledge": {
+    get: {
+      responses: {
+        "200": KnowledgeList;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+    post: {
+      parameters: {
+        "Idempotency-Key": string;
+      };
+      requestBody: KnowledgeCreate;
+      responses: {
+        "200": KnowledgeEntry;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-knowledge/{entry_id}": {
+    patch: {
+      parameters: {
+        entry_id: string;
+        "Idempotency-Key": string;
+      };
+      requestBody: KnowledgePatch;
+      responses: {
+        "200": KnowledgeEntry;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-operations": {
+    get: {
+      responses: {
+        "200": OperationsOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-phone": {
+    get: {
+      responses: {
+        "200": PhoneInboxOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-phone/replies": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: ReplyBody;
+      responses: {
+        "201": PhoneEventOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-phone/simulate": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: SimulateBody;
+      responses: {
+        "201": PhoneEventOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-phone/twilio/{kind}": {
+    post: {
+      parameters: {
+        kind: "messages" | "voice" | "recording" | "transcription" | "status";
+      };
+      responses: {
+        "200": string;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-property-links": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: PropertyLinkBody;
+      responses: {
+        "200": PropertyLinkOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-property-links/unlink": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: UnlinkBody;
+      responses: {
+        "200": UnlinkOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
   "/v1/maintenance-tickets": {
     get: {
       parameters: {
         limit?: number;
         before?: number | null;
+        view?: "active" | "past" | null;
       };
       responses: {
         "200": MaintenancePageOut;
@@ -2320,6 +3219,22 @@ export interface apiPaths {
       requestBody: NoteBody;
       responses: {
         "200": StoredOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-tickets/{ticket_id}/analyze": {
+    post: {
+      parameters: {
+        ticket_id: string;
+        "Idempotency-Key"?: string | null;
+      };
+      responses: {
+        "200": TicketStaffOut | TicketContractorOut | TicketPublicOut;
         "401": ErrorEnvelope;
         "403": ErrorEnvelope;
         "404": ErrorEnvelope;
@@ -2407,10 +3322,44 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/maintenance-tickets/{ticket_id}/issues": {
+    get: {
+      parameters: {
+        ticket_id: string;
+      };
+      responses: {
+        "200": IssuesOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-tickets/{ticket_id}/issues/{issue_id}/updates": {
+    post: {
+      parameters: {
+        ticket_id: string;
+        issue_id: string;
+        "Idempotency-Key": string;
+      };
+      requestBody: IssueUpdate;
+      responses: {
+        "200": IssuesOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
   "/v1/maintenance-tickets/{ticket_id}/media-uploads": {
     post: {
       parameters: {
         ticket_id: string;
+        "Idempotency-Key"?: string | null;
       };
       requestBody: UploadBody;
       responses: {
@@ -2427,6 +3376,7 @@ export interface apiPaths {
     post: {
       parameters: {
         ticket_id: string;
+        "Idempotency-Key"?: string | null;
       };
       requestBody: MessageBody;
       responses: {
@@ -2443,10 +3393,102 @@ export interface apiPaths {
     post: {
       parameters: {
         ticket_id: string;
+        "Idempotency-Key"?: string | null;
       };
       requestBody: TransitionBody;
       responses: {
         "200": TransitionDuplicateOut | TransitionStatusOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-tickets/{ticket_id}/workflow": {
+    get: {
+      parameters: {
+        ticket_id: string;
+      };
+      responses: {
+        "200": WorkflowDetailOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+    post: {
+      parameters: {
+        ticket_id: string;
+        "Idempotency-Key": string;
+      };
+      requestBody: unknown;
+      responses: {
+        "200": WorkflowDetailOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-workers/{profile_id}": {
+    patch: {
+      parameters: {
+        profile_id: string;
+        "Idempotency-Key": string;
+      };
+      requestBody: WorkerUpdate;
+      responses: {
+        "200": WorkerOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-workflow": {
+    get: {
+      parameters: {
+        view?: "active" | "past" | null;
+        before?: string | null;
+      };
+      responses: {
+        "200": WorkflowBoardOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-workspace": {
+    get: {
+      responses: {
+        "200": WorkspaceOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/maintenance-workspace/apps": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: WorkspaceAppBody;
+      responses: {
+        "200": WorkspaceAppBody;
         "401": ErrorEnvelope;
         "403": ErrorEnvelope;
         "404": ErrorEnvelope;
@@ -2598,6 +3640,9 @@ export interface apiPaths {
   };
   "/v1/payee-destinations": {
     post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
       requestBody: grok_bot__api__routes__distributions__DestinationBody;
       responses: {
         "201": DestinationOut;
@@ -2677,7 +3722,7 @@ export interface apiPaths {
       };
       requestBody: PropertyWrite;
       responses: {
-        "201": PropertyOut;
+        "201": grok_bot__api__success__PropertyOut;
         "401": ErrorEnvelope;
         "403": ErrorEnvelope;
         "404": ErrorEnvelope;
@@ -2692,7 +3737,7 @@ export interface apiPaths {
         property_id: string;
       };
       responses: {
-        "200": PropertyOut;
+        "200": grok_bot__api__success__PropertyOut;
         "401": ErrorEnvelope;
         "403": ErrorEnvelope;
         "404": ErrorEnvelope;
@@ -2707,7 +3752,7 @@ export interface apiPaths {
       };
       requestBody: PropertyPatch;
       responses: {
-        "200": PropertyOut;
+        "200": grok_bot__api__success__PropertyOut;
         "401": ErrorEnvelope;
         "403": ErrorEnvelope;
         "404": ErrorEnvelope;
@@ -3157,6 +4202,114 @@ export interface apiPaths {
       };
     };
   };
+  "/v1/simulated-bank": {
+    get: {
+      responses: {
+        "200": SimulatedBankOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/simulated-bank/accounts": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: AccountBody;
+      responses: {
+        "200": SimulatedBankOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/simulated-bank/accounts/{account_id}/outcome": {
+    post: {
+      parameters: {
+        account_id: string;
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: OutcomeBody;
+      responses: {
+        "200": SimulatedBankOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/simulated-bank/batches/{batch_id}/reconcile": {
+    post: {
+      parameters: {
+        batch_id: string;
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: ReconcileBody;
+      responses: {
+        "200": SimulatedBankOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/simulated-bank/demo-setup": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      responses: {
+        "200": SimulatedBankOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/simulated-bank/receipts": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: grok_bot__api__routes__simulated_bank__RentBody;
+      responses: {
+        "200": SimulatedBankOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/simulated-bank/step-up": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      responses: {
+        "200": StepUpOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
   "/v1/statements": {
     get: {
       responses: {
@@ -3187,6 +4340,128 @@ export interface apiPaths {
       };
       responses: {
         "200": StatementOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe": {
+    get: {
+      responses: {
+        "200": StripeOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/properties": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: PropertyBody;
+      responses: {
+        "200": StripeOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/recipients": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: RecipientBody;
+      responses: {
+        "200": OnboardingOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/recipients/{party_id}/refresh": {
+    post: {
+      parameters: {
+        party_id: string;
+        "Idempotency-Key"?: string | null;
+      };
+      responses: {
+        "200": StripeOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/rents": {
+    post: {
+      parameters: {
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: grok_bot__api__routes__stripe__RentBody;
+      responses: {
+        "200": CheckoutOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/rents/{rent_id}/refresh": {
+    post: {
+      parameters: {
+        rent_id: string;
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: RefreshBody;
+      responses: {
+        "200": StripeOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/rents/{rent_id}/reimburse-fee": {
+    post: {
+      parameters: {
+        rent_id: string;
+        "Idempotency-Key"?: string | null;
+      };
+      requestBody: ReimbursementBody;
+      responses: {
+        "200": StripeOut;
+        "401": ErrorEnvelope;
+        "403": ErrorEnvelope;
+        "404": ErrorEnvelope;
+        "409": ErrorEnvelope;
+        "422": ErrorEnvelope;
+      };
+    };
+  };
+  "/v1/stripe/webhook": {
+    post: {
+      responses: {
+        "202": StripeWebhookOut;
         "401": ErrorEnvelope;
         "403": ErrorEnvelope;
         "404": ErrorEnvelope;

@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+from threading import Event, Thread
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -15,8 +17,16 @@ from grok_bot.api.routes.demo import router as demo_router
 from grok_bot.api.routes.distributions import router as distributions_router
 from grok_bot.api.routes.health import router as health_router
 from grok_bot.api.routes.maintenance import router as maintenance_router
+from grok_bot.api.routes.maintenance_phone import router as maintenance_phone_router
+from grok_bot.api.routes.maintenance_knowledge import router as maintenance_knowledge_router
+from grok_bot.api.routes.maintenance_issues import router as maintenance_issues_router
+from grok_bot.api.routes.maintenance_operations import router as maintenance_operations_router
+from grok_bot.api.routes.maintenance_bridge import router as maintenance_bridge_router
+from grok_bot.api.routes.maintenance_workflow import router as maintenance_workflow_router
 from grok_bot.api.routes.operations import router as operations_router
 from grok_bot.api.routes.webhooks import router as webhooks_router
+from grok_bot.api.routes.simulated_bank import router as simulated_bank_router
+from grok_bot.api.routes.stripe import router as stripe_router
 from grok_bot.api.routes.me import router as me_router
 from grok_bot.api.routes.properties import router as properties_router
 from grok_bot.api.routes.prospects import router as prospects_router
@@ -24,10 +34,31 @@ from grok_bot.api.routes.units import router as units_router
 from grok_bot.db import build_engine
 from grok_bot.domain.clock import SystemClock
 from grok_bot.settings import Settings
+from grok_bot.domain.stripe_client import StripeError
+from grok_bot.domain.stripe_worker import worker_loop
+from grok_bot.domain.twilio_phone import worker_loop as phone_worker_loop
 
 
 def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5) -> FastAPI:
-    app = FastAPI(title="Grok Bot API", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(application):
+        stop = Event()
+        worker = None
+        phone_worker = None
+        if settings.stripe_configured and settings.stripe_worker_enabled:
+            worker = Thread(target=worker_loop, args=(application.state.engine, settings, stop), daemon=True, name="stripe-sandbox-worker")
+            worker.start()
+        if settings.twilio_configured or settings.allows_demo_session:
+            phone_worker = Thread(target=phone_worker_loop, args=(application.state.engine, settings, stop), daemon=True, name="maintenance-phone-worker")
+            phone_worker.start()
+        yield
+        stop.set()
+        if worker:
+            worker.join(timeout=5)
+        if phone_worker:
+            phone_worker.join(timeout=5)
+
+    app = FastAPI(title="Property Desk API", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.clock = SystemClock()
     app.state.engine = build_engine(settings.database_url, pool_size=pool_size, max_overflow=max_overflow)
@@ -36,11 +67,13 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
             CORSMiddleware,
             allow_origins=settings.cors_origin_list,
             allow_credentials=False,
-            allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+            allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
             allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "If-Match", "X-Request-Id"],
             expose_headers=["X-Request-Id", "ETag", "Idempotency-Status"],
         )
         app.include_router(auth_router, prefix="/v1")
+        app.include_router(simulated_bank_router, prefix="/v1")
+        app.include_router(stripe_router, prefix="/v1")
         if settings.allows_demo_session:
             app.include_router(demo_router, prefix="/v1")
     app.include_router(health_router, prefix="/v1")
@@ -49,6 +82,12 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     app.include_router(units_router, prefix="/v1")
     app.include_router(accounting_router, prefix="/v1")
     app.include_router(maintenance_router, prefix="/v1")
+    app.include_router(maintenance_phone_router, prefix="/v1")
+    app.include_router(maintenance_workflow_router, prefix="/v1")
+    app.include_router(maintenance_knowledge_router, prefix="/v1")
+    app.include_router(maintenance_issues_router, prefix="/v1")
+    app.include_router(maintenance_operations_router, prefix="/v1")
+    app.include_router(maintenance_bridge_router, prefix="/v1")
     app.include_router(prospects_router, prefix="/v1")
     app.include_router(distributions_router, prefix="/v1")
     app.include_router(controls_router, prefix="/v1")
@@ -118,6 +157,10 @@ def create_app(settings: Settings, *, pool_size: int = 5, max_overflow: int = 5)
     async def integrity_handler(request: Request, exc: IntegrityError):
         code, message = _integrity_message(exc)
         return _error_response(request, 409, code, message, {}, False)
+
+    @app.exception_handler(StripeError)
+    async def stripe_error_handler(request: Request, exc: StripeError):
+        return _error_response(request, exc.status_code, exc.code, exc.message, {}, exc.retryable)
 
     return app
 

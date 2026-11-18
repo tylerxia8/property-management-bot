@@ -7,7 +7,7 @@ import time
 
 from sqlalchemy import create_engine, text
 
-from grok_bot.seed import ensure_demo_statement, seed_demo
+from grok_bot.seed import ensure_demo_maintenance, ensure_demo_statement, seed_demo
 
 
 def _wait() -> None:
@@ -25,14 +25,15 @@ def _wait() -> None:
 
 def main() -> None:
     _wait()
-    subprocess.check_call([sys.executable, "-m", "alembic", "upgrade", "head"], cwd="/app")
+    subprocess.check_call([sys.executable, "-m", "alembic", "upgrade", "head"], cwd="/app", timeout=120)
     url = os.environ["MIGRATION_DATABASE_URL"]
-    engine = create_engine(url)
+    engine = create_engine(url, connect_args={"connect_timeout": 5, "options": "-c statement_timeout=30000 -c lock_timeout=5000"})
     with engine.connect() as conn:
         existing = conn.execute(text("SELECT count(*) FROM organizations")).scalar()
     if int(existing or 0) == 0:
         seed_demo(url, os.environ.get("APP_ENV", "production"), os.environ["SESSION_SECRET"])
     ensure_demo_statement(engine, os.environ.get("APP_ENV", "production"))
+    ensure_demo_maintenance(engine, os.environ.get("APP_ENV", "production"))
     engine.dispose()
     os.execvp(
         sys.executable,

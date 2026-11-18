@@ -3,9 +3,9 @@ import "./globals.css";
 import WorkspaceShell from "./workspace-shell";
 
 export const metadata = {
-  title: "Grok Bot · Property workspace",
+  title: "Maintenance",
   description:
-    "A clear workspace for rent, residents, maintenance, and owner records.",
+    "Report a problem and follow the repair.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

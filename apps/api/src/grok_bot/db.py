@@ -11,6 +11,8 @@ def build_engine(url: str, *, pool_size: int = 5, max_overflow: int = 5) -> Engi
         pool_size=pool_size,
         max_overflow=max_overflow,
         pool_pre_ping=True,
+        pool_timeout=10,
+        connect_args={"connect_timeout": 5, "options": "-c statement_timeout=30000 -c lock_timeout=5000"},
     )
 
     @event.listens_for(engine, "checkout")

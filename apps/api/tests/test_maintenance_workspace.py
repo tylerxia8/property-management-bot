@@ -2,7 +2,7 @@ from uuid import uuid4
 from grok_bot.api.success import TicketOut
 from pydantic import TypeAdapter
 from tests.support import seed_member, bearer, login
-from tests.test_maintenance import _staff, _report, _upload_and_complete
+from tests.test_maintenance import _staff, _report, _upload_and_complete, _workflow_assignment
 from io import BytesIO
 from PIL import Image
 
@@ -134,7 +134,9 @@ def test_structured_followups_do_not_fill_unrelated_fields_and_survive_reload(
         json={"body": "The drip is slowing down", "field_key": "general"},
     ).json()
     assert "onset_frequency" in update["missing_fields"]
-    assert len(update["messages"]) == 2
+    resident_messages = [message for message in update["messages"] if message["author_role"] == "tenant"]
+    assert [message["body"] for message in resident_messages] == ["Kitchen sink", "The drip is slowing down"]
+    assert any(message["author_role"] == "system" and message["body"] for message in update["messages"])
     assert (
         client.post(
             url + "/messages",
@@ -149,22 +151,29 @@ def test_structured_followups_do_not_fill_unrelated_fields_and_survive_reload(
         json={"body": "That's all, hand off to the manager"},
     ).json()
     assert sent["handoff"] is True
-    assert sent["status"] == "MANAGER_REVIEW"
+    planned = client.post(url + "/analyze", headers={**staff["tenant"], "Idempotency-Key": f"handoff-{ticket['id']}"})
+    assert planned.status_code == 200, planned.text
+    assert planned.json()["status"] == "ASSIGNMENT_PENDING"
+    blocked = client.post(url + "/transitions", headers=staff["manager"], json={"action": "set_status", "status": "IN_PROGRESS"})
+    assert blocked.status_code == 409, blocked.text
+    assert blocked.json()["error"]["code"] == "WORKFLOW_REQUIRED"
+    _workflow_assignment(client, staff, ticket["id"])
     changed = client.post(
-        url + "/transitions",
-        headers=staff["manager"],
-        json={
-            "action": "set_status",
-            "status": "IN_PROGRESS",
-            "reason": "Plumber visit underway.",
-        },
+        url + "/workflow",
+        headers={**staff["contractor0"], "Idempotency-Key": f"start-{ticket['id']}"},
+        json={"action": "start_work"},
     )
     assert changed.status_code == 200, changed.text
+    assert changed.json()["ticket"]["status"] == "IN_PROGRESS"
     loaded = client.get(url, headers=staff["tenant"]).json()
     TypeAdapter(TicketOut).validate_python(loaded)
     assert loaded["status"] == "IN_PROGRESS"
-    assert loaded["history"][-1]["reason"] == "Plumber visit underway."
-    assert loaded["messages"][0]["body"] == "Kitchen sink"
+    assert loaded["history"][-1]["status"] == "IN_PROGRESS"
+    fields = {field["field_key"]: field for field in loaded["intake"]}
+    assert fields["exact_location"]["value_text"] == "Kitchen sink"
+    assert fields["onset_frequency"]["status"] == "UNKNOWN"
+    resident_messages = [message for message in loaded["messages"] if message["author_role"] == "tenant"]
+    assert [message["body"] for message in resident_messages] == ["Kitchen sink", "The drip is slowing down", "That's all, hand off to the manager"]
 
 
 def test_safety_in_optional_fields_and_explicit_answers(client, migrator_engine):

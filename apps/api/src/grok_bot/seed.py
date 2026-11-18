@@ -640,6 +640,23 @@ def _demo_user(conn, user_id: UUID, display_name: str, subject: str) -> None:
     _user(conn, user_id, display_name, subject, secrets.token_urlsafe(24), DEMO_ORG)
 
 
+def ensure_demo_maintenance(engine, app_env: str = "production") -> None:
+    if app_env not in {"development", "test"} or engine.url.database != DEMO_DATABASE:
+        raise SystemExit("demo maintenance refuses every database except grok_demo_sample")
+    user = UUID("cccccccc-cccc-4ccc-8ccc-ccccccccccc1")
+    party = UUID("cccccccc-cccc-4ccc-8ccc-ccccccccccc2")
+    profile = UUID("cccccccc-cccc-4ccc-8ccc-ccccccccccc3")
+    with engine.begin() as conn:
+        if conn.execute(text("SELECT id FROM users WHERE id=:id"), {"id": user}).scalar_one_or_none() is None:
+            _demo_user(conn, user, "Johnny", "maintenance@example.test")
+        conn.execute(text("UPDATE users SET display_name='Johnny' WHERE organization_id=:org AND id=:id"), {"org": DEMO_ORG, "id": user})
+        conn.execute(text("UPDATE ticket_messages SET sender_label=CASE WHEN author_id=:user OR sender_label=:previous THEN 'Johnny' ELSE sender_label END,body=replace(body,:previous,'Johnny') WHERE organization_id=:org AND (author_id=:user OR sender_label=:previous OR strpos(body,:previous)>0)"), {"org": DEMO_ORG, "user": user, "previous": "Alex · Demo maintenance"})
+        if conn.execute(text("SELECT id FROM role_grants WHERE organization_id=:org AND user_id=:id AND role='contractor' AND resource_type IS NULL"), {"org": DEMO_ORG, "id": user}).first() is None:
+            _grant_org(conn, user, "contractor")
+        conn.execute(text("INSERT INTO parties (id,organization_id,display_name,kind) VALUES (:id,:org,'Johnny','person') ON CONFLICT (id) DO UPDATE SET display_name=EXCLUDED.display_name WHERE parties.organization_id=EXCLUDED.organization_id"), {"id": party, "org": DEMO_ORG})
+        conn.execute(text("INSERT INTO contractor_profiles (id,organization_id,party_id,user_id,approved,trades,can_claim_unassigned) VALUES (:id,:org,:party,:user,true,'General maintenance and plumbing assessment',true) ON CONFLICT (id) DO UPDATE SET can_claim_unassigned=true WHERE contractor_profiles.organization_id=EXCLUDED.organization_id AND contractor_profiles.user_id=EXCLUDED.user_id"), {"id": profile, "org": DEMO_ORG, "party": party, "user": user})
+
+
 def _grant_org(conn, user_id: UUID, role: str) -> None:
     conn.execute(
         text(

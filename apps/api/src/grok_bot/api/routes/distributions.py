@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request
@@ -26,6 +27,7 @@ from grok_bot.api.success import (
 from grok_bot.auth.permissions import Principal
 from grok_bot.domain.idempotency import request_hash
 from grok_bot.domain.portfolio import run_idempotent_create
+from grok_bot.domain.records import write_audit
 from grok_bot.domain.distributions import (
     approve_batch,
     cancel_batch,
@@ -49,6 +51,7 @@ class DestinationBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     party_id: UUID
     masked_label: str
+    channel: Literal["ZELLE", "VENMO"] = "ZELLE"
 
 
 class DraftBody(BaseModel):
@@ -63,6 +66,7 @@ class ApproveBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     snapshot_hash: str
     reason: str
+    posting_date: date | None = None
 
 
 class SubmitBody(BaseModel):
@@ -98,16 +102,38 @@ class OwnerLinkBody(BaseModel):
 
 
 @router.post("/payee-destinations", response_model=DestinationOut, status_code=201)
-def post_destination(body: DestinationBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+def post_destination(body: DestinationBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "distributions.draft")
-    return JSONResponse(status_code=201, content=create_destination(session, principal.organization_id, body.party_id, body.masked_label))
+
+    def create():
+        destination = create_destination(session, principal.organization_id, body.party_id, body.masked_label, body.channel)
+        write_audit(
+            session, organization_id=principal.organization_id, actor_id=principal.user_id,
+            action="distribution.destination_created", target_type="payee_destination", target_id=UUID(destination["id"]),
+            target_version=destination["version"], request_id=request_id_of(request), before_state=None,
+            after_state={"party_id": str(body.party_id), "channel": body.channel, "version": destination["version"]},
+        )
+        return destination
+
+    if idempotency_key is None:
+        return JSONResponse(status_code=201, content=create())
+    key = require_idempotency_key(idempotency_key)
+    result, _status = run_idempotent_create(session, principal, key=key, hashed=request_hash("POST", "/v1/payee-destinations", body.model_dump(mode="json")), create=create)
+    return JSONResponse(status_code=201, content=result)
 
 
 @router.post("/distribution-batches", response_model=DraftBatchOut, status_code=201)
-def post_batch(body: DraftBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+def post_batch(body: DraftBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "distributions.draft")
-    result = draft_batch(session, principal.organization_id, body.property_id, body.as_of, body.management_party_id, body.liability_ids)
-    result["request_id"] = request_id_of(request)
+
+    def create():
+        drafted = draft_batch(session, principal.organization_id, body.property_id, body.as_of, body.management_party_id, body.liability_ids)
+        return {**drafted, "request_id": request_id_of(request)}
+
+    if idempotency_key is None:
+        return JSONResponse(status_code=201, content=create())
+    key = require_idempotency_key(idempotency_key)
+    result, _status = run_idempotent_create(session, principal, key=key, hashed=request_hash("POST", "/v1/distribution-batches", body.model_dump(mode="json")), create=create)
     return JSONResponse(status_code=201, content=result)
 
 
@@ -125,18 +151,39 @@ def post_validate(batch_id: UUID, principal: Principal = Depends(get_principal),
 
 
 @router.post("/distribution-batches/{batch_id}/approve", response_model=ApprovedBatchOut)
-def post_approve(batch_id: UUID, body: ApproveBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+def post_approve(batch_id: UUID, body: ApproveBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "distributions.approve")
-    return approve_batch(
-        session,
-        principal.organization_id,
-        batch_id,
-        principal.user_id,
-        body.snapshot_hash,
-        body.reason,
-        request.app.state.settings,
-        request.app.state.clock.now(),
-    )
+    from grok_bot.domain.distributions import _lock_batch
+    from grok_bot.domain.simulated_bank import account_for_property, send_approved
+
+    settings = request.app.state.settings
+    batch = _lock_batch(session, principal.organization_id, batch_id)
+    simulated = settings.allows_local_auth and account_for_property(session, principal.organization_id, batch["property_id"]) is not None
+    stripe = session.execute(text("SELECT 1 FROM stripe_properties WHERE organization_id = :org AND property_id = :property"), {"org": principal.organization_id, "property": batch["property_id"]}).scalar() is not None
+    if simulated or stripe:
+        require_idempotency_key(idempotency_key)
+        if body.posting_date is None:
+            problem(422, "VALIDATION_ERROR", "Automatic payouts require a posting date.")
+        settings = settings.model_copy(update={"approval_ttl_hours": settings.approval_ttl_hours or 24, "step_up_max_age_seconds": settings.step_up_max_age_seconds or 900})
+
+    def create():
+        now = request.app.state.clock.now()
+        approved = approve_batch(session, principal.organization_id, batch_id, principal.user_id, body.snapshot_hash, body.reason, settings, now)
+        if simulated:
+            send_approved(session, principal.organization_id, batch_id, body.posting_date, now)
+            approved = {**get_batch(session, principal.organization_id, batch_id), "approval_id": approved["approval_id"]}
+        elif stripe:
+            from grok_bot.domain.stripe_worker import queue_batch
+
+            queue_batch(session, principal, batch_id, UUID(approved["approval_id"]), body.posting_date, settings, now)
+            approved = {**get_batch(session, principal.organization_id, batch_id), "approval_id": approved["approval_id"]}
+        return approved
+
+    if idempotency_key is None:
+        return create()
+    key = require_idempotency_key(idempotency_key)
+    result, _status = run_idempotent_create(session, principal, key=key, hashed=request_hash("POST", f"/v1/distribution-batches/{batch_id}/approve", body.model_dump(mode="json")), create=create)
+    return result
 
 
 @router.post("/distribution-batches/{batch_id}/export", response_model=ExportOut)

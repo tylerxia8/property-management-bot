@@ -23,7 +23,7 @@ def homes(session, organization_id, user_id):
     ]
 
 
-def ticket_list(session, organization_id, user_id, manager, limit, before):
+def ticket_list(session, organization_id, user_id, manager, limit, before, view=None):
     rows = (
         session.execute(
             text("""
@@ -32,6 +32,7 @@ def ticket_list(session, organization_id, user_id, manager, limit, before):
         FROM maintenance_tickets t
         LEFT JOIN app_maintenance_homes() h ON h.lease_id = t.lease_id
         WHERE t.organization_id = :org AND (:manager OR t.reporter_user_id = :user)
+          AND (CAST(:view AS text) IS NULL OR (:view='past' AND t.status IN ('COMPLETED','CLOSED','CANCELED')) OR (:view='active' AND t.status NOT IN ('COMPLETED','CLOSED','CANCELED')))
           AND (CAST(:before AS bigint) IS NULL OR t.ticket_number < :before)
         ORDER BY t.ticket_number DESC LIMIT :limit
     """),
@@ -41,6 +42,7 @@ def ticket_list(session, organization_id, user_id, manager, limit, before):
                 "manager": manager,
                 "limit": limit + 1,
                 "before": before,
+                "view": view,
             },
         )
         .mappings()
@@ -71,7 +73,7 @@ def ticket_details(session, organization_id, ticket_id):
         session.execute(
             text("""
         SELECT t.description, t.created_at, h.property_name, h.unit_label,
-        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'body',m.body,'created_at',m.created_at) ORDER BY m.created_at,m.id)
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'body',m.body,'author_role',m.author_role,'created_at',m.created_at) ORDER BY m.created_at,m.id)
           FROM ticket_messages m WHERE m.organization_id = t.organization_id AND m.ticket_id = t.id), '[]'::jsonb) AS messages,
         COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'status',m.status,'rejection_reason',m.rejection_reason,'content_type',COALESCE(m.detected_type,m.declared_content_type)) ORDER BY m.created_at,m.id)
           FROM media_objects m WHERE m.organization_id = t.organization_id AND m.ticket_id = t.id), '[]'::jsonb) AS media,

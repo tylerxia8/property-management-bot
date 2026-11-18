@@ -1,4 +1,4 @@
-﻿import MaintenanceWorkspace from "./workspace";
+﻿import TenantView from "./tenant-view";
 export default function MaintenancePage() {
-  return <MaintenanceWorkspace />;
+  return <TenantView />;
 }

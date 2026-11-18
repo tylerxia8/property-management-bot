@@ -1,6 +1,7 @@
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request
@@ -47,7 +48,8 @@ from grok_bot.domain.maintenance import (
 )
 from grok_bot.errors import problem
 from grok_bot.domain.maintenance_workspace import homes, ticket_list, report_once
-from grok_bot.domain.idempotency import request_hash
+from grok_bot.domain.idempotency import find_replay, request_hash, store_replay
+from grok_bot.domain import maintenance_idempotency
 from grok_bot.api.deps import require_idempotency_key
 from grok_bot.api.success import MaintenanceContextOut, MaintenancePageOut
 from grok_bot.api.success import (
@@ -234,9 +236,9 @@ def get_context(request: Request, principal: Principal = Depends(get_principal),
 
 
 @router.get("/maintenance-tickets", response_model=MaintenancePageOut)
-def list_tickets(request: Request, limit: int = Query(default=30, ge=1, le=100), before: int | None = Query(default=None, ge=1), principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+def list_tickets(request: Request, limit: int = Query(default=30, ge=1, le=100), before: int | None = Query(default=None, ge=1), view: Literal["active", "past"] | None = None, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     _require_workspace(principal)
-    result = ticket_list(session, principal.organization_id, principal.user_id, principal.allows("maintenance.manage"), limit, before)
+    result = ticket_list(session, principal.organization_id, principal.user_id, principal.allows("maintenance.manage"), limit, before, view)
     return {**result, "request_id": request_id_of(request)}
 
 
@@ -264,6 +266,14 @@ def post_ticket(body: TicketBody, request: Request, idempotency_key: str | None 
         result = report_once(session, principal, key, hashed, create, lambda ticket_id: get_ticket(session, principal.organization_id, ticket_id, request.app.state.settings.session_secret, "tenant"))
     else:
         result = create()
+    settings = request.app.state.settings
+    notification = "PENDING" if settings.allows_demo_session or settings.twilio_configured and settings.twilio_organization_id == principal.organization_id and settings.twilio_maintenance_notify_number else "BLOCKED"
+    result["notification_status"] = session.execute(text("UPDATE maintenance_tickets SET notification_status=COALESCE(notification_status,:status) WHERE organization_id=:org AND id=:id RETURNING notification_status"), {"org": principal.organization_id, "id": result["id"], "status": notification}).scalar_one()
+    from grok_bot.domain.maintenance_analysis import analyze
+
+    ticket_id = result["id"]
+    analyze(session, settings, principal, result, f"initial-plan:{ticket_id}", request_id_of(request), request.app.state.clock.now())
+    result = get_ticket(session, principal.organization_id, ticket_id, settings.session_secret, "manager" if principal.allows("maintenance.manage") else "tenant")
     result["request_id"] = request_id_of(request)
     return JSONResponse(status_code=201, content=result)
 
@@ -297,6 +307,22 @@ def get_one(ticket_id: UUID, request: Request, principal: Principal = Depends(ge
     return result
 
 
+@router.post("/maintenance-tickets/{ticket_id}/analyze", response_model=TicketOut)
+def post_analysis(ticket_id: UUID, request: Request, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"), principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+    from grok_bot.domain.maintenance_analysis import analyze
+
+    _require_workspace(principal)
+    key = require_idempotency_key(idempotency_key)
+    viewer = can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles)
+    if viewer not in {"manager", "tenant"}:
+        problem(404, "NOT_FOUND", "Ticket not found.")
+    ticket = get_ticket(session, principal.organization_id, ticket_id, request.app.state.settings.session_secret, viewer)
+    analyze(session, request.app.state.settings, principal, ticket, key, request_id_of(request), request.app.state.clock.now())
+    result = get_ticket(session, principal.organization_id, ticket_id, request.app.state.settings.session_secret, viewer)
+    result["request_id"] = request_id_of(request)
+    return result
+
+
 @router.patch("/maintenance-tickets/{ticket_id}", response_model=TicketOut)
 def patch_one(ticket_id: UUID, body: IntakeBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
     viewer = can_view_ticket(session, principal.organization_id, ticket_id, principal.user_id, principal.roles)
@@ -316,33 +342,57 @@ def patch_one(ticket_id: UUID, body: IntakeBody, request: Request, principal: Pr
 
 
 @router.post("/maintenance-tickets/{ticket_id}/messages", response_model=TicketOut)
-def post_message(ticket_id: UUID, body: MessageBody, request: Request, session: Session = Depends(get_session, scope="function")):
+def post_message(ticket_id: UUID, body: MessageBody, request: Request, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"), session: Session = Depends(get_session, scope="function")):
     actor, organization_id = _ticket_actor(request, session, ticket_id)
-    add_message(
-        session,
-        organization_id,
-        ticket_id,
-        body.body,
-        body.classifier_result,
-        request.app.state.settings.session_secret,
-        request.app.state.clock,
-        None if actor is None else actor.user_id,
-        field_key=body.field_key,
-    )
     viewer = "public" if actor is None else can_view_ticket(session, organization_id, ticket_id, actor.user_id, actor.roles)
     if viewer is None:
         problem(404, "NOT_FOUND", "Ticket not found.")
+    scoped_key = None
+    replay = None
+    if actor is not None and idempotency_key is not None:
+        key = require_idempotency_key(idempotency_key)
+        scoped_key = request_hash("POST", "maintenance-message-key", {"actor": str(actor.user_id), "ticket": str(ticket_id), "key": key})
+        hashed = request_hash("POST", f"/maintenance-tickets/{ticket_id}/messages", body.model_dump())
+        session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"), {"scope": f"message:{organization_id}:{scoped_key}"})
+        replay = maintenance_idempotency.find_replay(session, organization_id, actor.user_id, ticket_id, scoped_key, hashed)
+    if replay is None:
+        add_message(
+            session,
+            organization_id,
+            ticket_id,
+            body.body,
+            body.classifier_result,
+            request.app.state.settings.session_secret,
+            request.app.state.clock,
+            None if actor is None else actor.user_id,
+            field_key=body.field_key,
+        )
+        if scoped_key is not None:
+            maintenance_idempotency.store_replay(session, organization_id=organization_id, actor_id=actor.user_id, ticket_id=ticket_id, key=scoped_key, hashed=hashed, status=200, body={"ticket_id": str(ticket_id)})
     result = get_ticket(session, organization_id, ticket_id, request.app.state.settings.session_secret, viewer, persist_questions=False)
     result["request_id"] = request_id_of(request)
     return result
 
 
 @router.post("/maintenance-tickets/{ticket_id}/media-uploads", response_model=UploadOut, status_code=201)
-def post_upload(ticket_id: UUID, body: UploadBody, request: Request, session: Session = Depends(get_session, scope="function")):
+def post_upload(ticket_id: UUID, body: UploadBody, request: Request, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"), session: Session = Depends(get_session, scope="function")):
     actor, organization_id = _ticket_actor(request, session, ticket_id)
     if actor is not None and can_view_ticket(session, organization_id, ticket_id, actor.user_id, actor.roles) is None:
         problem(404, "NOT_FOUND", "Ticket not found.")
-    created = request_upload(session, organization_id, ticket_id, body.content_type, body.size_bytes, body.filename, body.sha256)
+    created = None
+    if actor is not None and idempotency_key is not None:
+        key = require_idempotency_key(idempotency_key)
+        scoped_key = request_hash("POST", "maintenance-media-key", {"actor": str(actor.user_id), "ticket": str(ticket_id), "key": key})
+        hashed = request_hash("POST", f"/maintenance-tickets/{ticket_id}/media-uploads", body.model_dump())
+        session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"), {"scope": f"media:{organization_id}:{scoped_key}"})
+        replay = maintenance_idempotency.find_replay(session, organization_id, actor.user_id, ticket_id, scoped_key, hashed)
+        if replay is not None:
+            created = replay["body"]
+        else:
+            created = request_upload(session, organization_id, ticket_id, body.content_type, body.size_bytes, body.filename, body.sha256)
+            maintenance_idempotency.store_replay(session, organization_id=organization_id, actor_id=actor.user_id, ticket_id=ticket_id, key=scoped_key, hashed=hashed, status=201, body={"id": created["id"]})
+    if created is None:
+        created = request_upload(session, organization_id, ticket_id, body.content_type, body.size_bytes, body.filename, body.sha256)
     token = _scoped_token(request, organization_id, created["id"], "media_upload", ticket_id)
     return JSONResponse(
         status_code=201,
@@ -504,9 +554,27 @@ def post_estimate(work_order_id: UUID, body: EstimateBody, principal: Principal 
 
 
 @router.post("/maintenance-tickets/{ticket_id}/transitions", response_model=TransitionOut)
-def post_transition(ticket_id: UUID, body: TransitionBody, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+def post_transition(ticket_id: UUID, body: TransitionBody, request: Request, idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"), principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function")):
+    from grok_bot.domain.maintenance_phone import lock_phone, queue_reply
+
     require_capability(principal, "maintenance.manage")
-    return transition_ticket(session, principal.organization_id, ticket_id, body.action, body.reason, body.duplicate_of_id, body.status, principal.user_id)
+    scoped_key = None
+    if idempotency_key is not None:
+        key = require_idempotency_key(idempotency_key)
+        scoped_key = request_hash("POST", "maintenance-transition-key", {"actor": str(principal.user_id), "ticket": str(ticket_id), "key": key})
+        hashed = request_hash("POST", f"/maintenance-tickets/{ticket_id}/transitions", body.model_dump(mode="json"))
+        session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"), {"scope": f"transition:{principal.organization_id}:{scoped_key}"})
+        replay = find_replay(session, principal.organization_id, scoped_key, hashed)
+        if replay is not None:
+            return replay["body"]
+    lock_phone(session, principal.organization_id)
+    result = transition_ticket(session, principal.organization_id, ticket_id, body.action, body.reason, body.duplicate_of_id, body.status, principal.user_id)
+    if body.action != "link_duplicate":
+        update_id = session.execute(text("SELECT id FROM maintenance_status_updates WHERE organization_id=:org AND ticket_id=:ticket ORDER BY created_at DESC,id DESC LIMIT 1"), {"org": principal.organization_id, "ticket": ticket_id}).scalar_one()
+        queue_reply(session, request.app.state.settings, principal.organization_id, principal.user_id, ticket_id, f"Maintenance update: {result['status'].replace('_', ' ').lower()}. Contact your property manager for details.", f"status:{update_id}", request_id_of(request))
+    if scoped_key is not None:
+        store_replay(session, organization_id=principal.organization_id, key=scoped_key, hashed=hashed, status=200, body=result)
+    return result
 
 
 @router.post("/maintenance-tickets/{ticket_id}/entry-secrets", response_model=StoredOut)

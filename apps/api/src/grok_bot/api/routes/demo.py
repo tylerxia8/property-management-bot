@@ -12,7 +12,7 @@ from grok_bot.errors import problem
 
 router = APIRouter(responses=ERROR_RESPONSES)
 
-SAMPLE_ROLES = ("property_manager", "accounting_staff", "tenant", "prospect", "owner")
+SAMPLE_ROLES = ("property_manager", "accounting_staff", "tenant", "prospect", "owner", "contractor")
 
 
 class DemoSessionBody(BaseModel):

@@ -1,0 +1,15 @@
+.workspace { max-width: 900px; margin: 20px auto; }
+.workspace > p { color: var(--muted); }
+.apps { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 16px; margin: 28px 0; }
+.apps a { display: grid; gap: 12px; padding: 24px; color: var(--ink); text-decoration: none; border: 1px solid var(--line-subtle); border-radius: 12px; background: var(--surface); }
+.apps span { font-size: 14px; color: var(--muted); }
+.setup { padding: 22px; margin-top: 18px; border: 1px solid var(--line-subtle); border-radius: 12px; background: var(--surface); }
+.setup summary { cursor: pointer; font-weight: 600; }
+.setup form { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin: 24px 0; }
+.setup label { display: grid; gap: 8px; flex: 1 1 230px; }
+.setup input, .setup select, .setup textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; box-sizing: border-box; }
+.setup button { padding: 12px 18px; border-radius: 8px; border: 1px solid var(--cta); background: var(--cta); color: var(--surface); cursor: pointer; }
+.setup button:disabled { opacity: .6; cursor: wait; }
+.setup li { margin: 16px 0; overflow-wrap: anywhere; }
+
+.setup button:hover:not(:disabled) { background: var(--cta-hover); border-color: var(--cta-hover); }

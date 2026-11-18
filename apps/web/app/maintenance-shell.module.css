@@ -1,0 +1,24 @@
+.app { min-height: 100vh; color: var(--ink); }
+.bar { display: grid; grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr); align-items: center; gap: 24px; width: 100%; margin: auto; padding: 22px 4vw; background: var(--surface); border-top: 3px solid var(--ink); border-bottom: 1px solid var(--line-subtle); }
+.home { justify-self: start; width: 64px; height: 64px; flex-shrink: 0; display: grid; place-items: center; color: var(--surface-highlight); background: var(--ink); border-radius: 16px; }
+.home svg { width: 40px; height: 40px; }
+.views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 5px; background: var(--surface); border-radius: 8px; }
+.views a, .views button { display: flex; align-items: center; justify-content: center; min-height: 42px; margin: 0; padding: 10px 20px; border: 1px solid transparent; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.4; white-space: nowrap; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s; }
+.views a:hover, .views button:hover { background: var(--surface-mist); border-color: transparent; }
+.views [aria-current=page], .views [aria-current=page]:hover { background: var(--surface-mist); border-color: transparent; border-bottom-color: var(--cta); color: var(--ink); box-shadow: none; }
+.views a:focus-visible, .views button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.views button:disabled { opacity: .6; cursor: wait; }
+.badge { justify-self: end; margin-left: auto; font-size: 11px; color: var(--muted); padding: 5px 8px; border: 1px solid var(--line-subtle); border-radius: 6px; }
+.content { width: 100%; max-width: 1200px; margin: auto; padding: 32px 24px 64px; }
+.error { color: var(--danger); background: var(--danger-chip); padding: 14px; border-radius: 8px; }
+.landing { max-width: 850px; margin: 36px auto; }
+.landing h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.2; margin-bottom: 12px; }
+.landing > p { color: var(--muted); margin-bottom: 32px; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.choice { display: flex; flex-direction: column; align-items: flex-start; padding: 28px; border: 1px solid var(--line-subtle); border-radius: 16px; background: var(--surface); color: var(--ink); text-align: left; font: inherit; cursor: pointer; text-decoration: none; }
+.choice:hover { border-color: var(--ink); background: var(--surface-mist); }
+.choice svg { width: 30px; height: 30px; margin-bottom: 22px; }
+.choice strong { display: block; font-size: 24px; margin-bottom: 10px; }
+.choice span { color: var(--muted); line-height: 1.6; }
+.choice em { font-style: normal; margin-top: 25px; font-weight: 600; }
+@media(max-width: 650px) { .bar { grid-template-columns: 64px minmax(0, 1fr); padding: 16px; gap: 12px; } .views { grid-column: 2; grid-row: 1; justify-self: center; width: 100%; max-width: 320px; box-sizing: border-box; gap: 4px; } .views a, .views button { padding: 8px 3px; font-size: 11px; white-space: normal; } .badge { display: none; } .content { padding: 24px 16px 48px; } .choices { grid-template-columns: 1fr; } .landing { margin: 12px auto; } }

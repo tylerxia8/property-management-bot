@@ -12,7 +12,6 @@ from grok_bot.domain.clock import FrozenClock
 from grok_bot.domain.media_scan import scan_stored_file
 from grok_bot.settings import Settings
 from tests.support import CONTACT_KEY, PROPERTY, SESSION_SECRET, bearer, database_url, login, seed_member
-from tests.test_accounting_core import _world
 
 
 REQUIRED_STATUSES = (
@@ -456,120 +455,89 @@ def test_mnt_07_windows_do_not_authorize_entry(client, migrator_engine):
     assert estimate.json()["spending_limit"] is None
 
 
-def test_mnt_08_completion_posts_nothing_until_one_approval(client, migrator_engine):
-    world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, single_owner=True)
-    ticket = _report(client, world["manager"], "Sink leaks")
-    profile = client.post(
-        "/v1/contractor-profiles",
-        headers=world["manager"],
-        json={"party_id": world["contractor_id"], "approved": True, "trades": "plumbing"},
+def test_mnt_08_completion_creates_no_financial_records(client, migrator_engine, fixture_scanner):
+    staff = _staff(client, migrator_engine)
+    ticket = _report(client, staff["tenant"], "Sink leaks")
+    assigned = _workflow_assignment(client, staff, ticket["id"])
+    photo = _upload_and_complete(client, staff["contractor0"], ticket["id"], _jpeg_bytes(), "image/jpeg", "completed.jpg")
+    before = _journal_count(migrator_engine, staff["org_id"])
+    command = {"action": "complete", "notes": "Replaced the trap and checked for leaks.", "media_ids": [photo["id"]]}
+    headers = {**staff["contractor0"], "Idempotency-Key": f"complete-{ticket['id']}"}
+    completed = client.post(f"/v1/maintenance-tickets/{ticket['id']}/workflow", headers=headers, json=command)
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["ticket"]["status"] == "COMPLETION_REVIEW"
+    assert completed.json()["work_order"]["completed_at"]
+    assert completed.json()["work_order"]["completion_media_ids"] == [photo["id"]]
+    replay = client.post(f"/v1/maintenance-tickets/{ticket['id']}/workflow", headers=headers, json=command)
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == completed.json()
+    assert _journal_count(migrator_engine, staff["org_id"]) == before
+    confirmed = client.post(
+        f"/v1/maintenance-tickets/{ticket['id']}/workflow",
+        headers={**staff["tenant"], "Idempotency-Key": f"confirm-{ticket['id']}"},
+        json={"action": "confirm_completion"},
     )
-    assert profile.status_code == 201, profile.text
-    assigned = client.post(
-        f"/v1/maintenance-tickets/{ticket['id']}/assignments",
-        headers=world["manager"],
-        json={"contractor_profile_id": profile.json()["id"], "scope": "kitchen sink"},
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["ticket"]["status"] == "COMPLETED"
+    with migrator_engine.connect() as conn:
+        party_id = conn.execute(text("SELECT party_id FROM contractor_profiles WHERE id=:id"), {"id": assigned["assignment"]["contractor_profile_id"]}).scalar_one()
+    invoice = client.post(
+        f"/v1/work-orders/{assigned['work_order']['id']}/invoices",
+        headers=staff["manager"],
+        json={"property_id": staff["property_id"], "contractor_party_id": str(party_id), "invoice_number": "INV-1042", "tax_cents": 0, "total_cents": 45000, "lines": [{"description": "Repair", "quantity": 1, "unit_price_cents": 45000, "line_total_cents": 45000}]},
     )
-    assert assigned.status_code == 201, assigned.text
-    before = _journal_count(migrator_engine, world["org_id"])
+    assert invoice.status_code == 409, invoice.text
+    assert invoice.json()["error"]["code"] == "WORKFLOW_APPROVAL_REQUIRED"
+    assert _journal_count(migrator_engine, staff["org_id"]) == before
+    assert _approval_count(migrator_engine, staff["org_id"]) == 0
+    with migrator_engine.connect() as conn:
+        assert conn.execute(text("SELECT count(*) FROM invoices WHERE organization_id=:org"), {"org": staff["org_id"]}).scalar_one() == 0
+        assert conn.execute(text("SELECT count(*) FROM maintenance_invoice_links WHERE organization_id=:org"), {"org": staff["org_id"]}).scalar_one() == 0
+
+
+def test_mnt_09_reopen_preserves_history_and_returns_to_manager(client, migrator_engine, fixture_scanner):
+    staff = _staff(client, migrator_engine)
+    ticket = _report(client, staff["tenant"], "Sink leaks")
+    assigned = _workflow_assignment(client, staff, ticket["id"])
+    photo = _upload_and_complete(client, staff["contractor0"], ticket["id"], _jpeg_bytes(), "image/jpeg", "first-visit.jpg")
     completed = client.post(
-        f"/v1/work-orders/{assigned.json()['work_order_id']}/completion",
-        headers=world["manager"],
-        json={"notes": "Replaced the trap."},
+        f"/v1/maintenance-tickets/{ticket['id']}/workflow",
+        headers={**staff["contractor0"], "Idempotency-Key": f"complete-{ticket['id']}"},
+        json={"action": "complete", "notes": "First visit", "media_ids": [photo["id"]]},
     )
     assert completed.status_code == 200, completed.text
-    assert completed.json()["payable_journal_id"] is None
-    assert _journal_count(migrator_engine, world["org_id"]) == before
-    invoice = _work_invoice(client, world, assigned.json()["work_order_id"], 45000, "INV-1042")
-    assert invoice["status"] == "SUBMITTED"
-    assert invoice["payable_journal_id"] is None
-    assert _approval_count(migrator_engine, world["org_id"]) == 0
-    approved = client.post(
-        f"/v1/invoices/{invoice['id']}/approve",
-        headers=world["manager"],
-        json={"posting_date": "2026-11-20"},
+    confirmed = client.post(
+        f"/v1/maintenance-tickets/{ticket['id']}/workflow",
+        headers={**staff["tenant"], "Idempotency-Key": f"confirm-{ticket['id']}"},
+        json={"action": "confirm_completion"},
     )
-    assert approved.status_code == 200, approved.text
-    assert approved.json()["payable_journal_id"]
-    again = client.post(
-        f"/v1/invoices/{invoice['id']}/approve",
-        headers=world["manager"],
-        json={"posting_date": "2026-11-20"},
-    )
-    assert again.status_code == 200, again.text
-    assert again.json()["payable_journal_id"] == approved.json()["payable_journal_id"]
-    assert _approval_count(migrator_engine, world["org_id"]) == 1
-    duplicate = client.post(
-        f"/v1/work-orders/{assigned.json()['work_order_id']}/invoices",
-        headers=world["manager"],
-        json={
-            "property_id": world["property_id"],
-            "contractor_party_id": world["contractor_id"],
-            "invoice_number": "inv-1042",
-            "tax_cents": 0,
-            "total_cents": 45000,
-            "lines": [{"description": "Repair", "quantity": 1, "unit_price_cents": 45000, "line_total_cents": 45000}],
-        },
-    )
-    assert duplicate.status_code == 409
-    assert duplicate.json()["error"]["code"] == "DUPLICATE_INVOICE"
-    assert _approval_count(migrator_engine, world["org_id"]) == 1
-    with migrator_engine.connect() as conn:
-        stored = conn.execute(text("SELECT status, payable_journal_id FROM invoices WHERE id = :id"), {"id": invoice["id"]}).one()
-        links = conn.execute(
-            text("SELECT count(*) FROM maintenance_invoice_links WHERE invoice_id = :id"),
-            {"id": invoice["id"]},
-        ).scalar()
-    assert stored.status == "APPROVED"
-    assert stored.payable_journal_id is not None
-    assert links == 1
-
-
-def test_mnt_09_reopen_preserves_assignment_and_invoice(client, migrator_engine):
-    world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, single_owner=True)
-    ticket = _report(client, world["manager"], "Sink leaks")
-    profile = client.post(
-        "/v1/contractor-profiles",
-        headers=world["manager"],
-        json={"party_id": world["contractor_id"], "approved": True, "trades": "plumbing"},
-    ).json()
-    assigned = client.post(
-        f"/v1/maintenance-tickets/{ticket['id']}/assignments",
-        headers=world["manager"],
-        json={"contractor_profile_id": profile["id"], "scope": "kitchen sink"},
-    ).json()
-    client.post(
-        f"/v1/work-orders/{assigned['work_order_id']}/completion",
-        headers=world["manager"],
-        json={"notes": "First visit"},
-    )
-    invoice = _work_invoice(client, world, assigned["work_order_id"], 12000, "INV-9")
-    approved = client.post(
-        f"/v1/invoices/{invoice['id']}/approve",
-        headers=world["manager"],
-        json={"posting_date": "2026-11-20"},
-    )
-    assert approved.status_code == 200, approved.text
-    closed = client.post(
-        f"/v1/maintenance-tickets/{ticket['id']}/transitions",
-        headers=world["manager"],
-        json={"action": "set_status", "status": "COMPLETED"},
-    )
-    assert closed.status_code == 200, closed.text
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["ticket"]["status"] == "COMPLETED"
     reopened = client.post(
-        f"/v1/maintenance-tickets/{ticket['id']}/transitions",
-        headers=world["manager"],
-        json={"action": "reopen"},
+        f"/v1/maintenance-tickets/{ticket['id']}/workflow",
+        headers={**staff["tenant"], "Idempotency-Key": f"reopen-{ticket['id']}"},
+        json={"action": "reopen", "reason": "The sink is leaking again."},
     )
     assert reopened.status_code == 200, reopened.text
-    assert reopened.json()["status"] == "REOPENED"
+    assert reopened.json()["ticket"]["status"] == "ASSIGNMENT_PENDING"
+    assert reopened.json()["assignment"] is None
+    assert reopened.json()["work_order"] is None
     with migrator_engine.connect() as conn:
-        assignment = conn.execute(text("SELECT id, status FROM assignments WHERE id = :id"), {"id": assigned["assignment_id"]}).one()
-        link = conn.execute(text("SELECT invoice_id FROM maintenance_invoice_links WHERE work_order_id = :id"), {"id": assigned["work_order_id"]}).one()
-        payable = conn.execute(text("SELECT payable_journal_id FROM invoices WHERE id = :id"), {"id": invoice["id"]}).scalar()
-    assert str(assignment.id) == assigned["assignment_id"]
-    assert str(link.invoice_id) == invoice["id"]
-    assert str(payable) == approved.json()["payable_journal_id"]
+        assignment = conn.execute(text("SELECT id,status FROM assignments WHERE id=:id"), {"id": assigned["assignment"]["id"]}).mappings().one()
+        work = conn.execute(text("SELECT completion_notes,completed_at,confirmed_at,completion_media_ids FROM work_orders WHERE id=:id"), {"id": assigned["work_order"]["id"]}).mappings().one()
+        active = conn.execute(text("SELECT active_assignment_id FROM maintenance_tickets WHERE id=:id"), {"id": ticket["id"]}).scalar_one()
+    assert str(assignment["id"]) == assigned["assignment"]["id"]
+    assert assignment["status"] == "ACCEPTED"
+    assert work["completion_notes"] == "First visit"
+    assert work["completed_at"] and work["confirmed_at"]
+    assert work["completion_media_ids"] == [photo["id"]]
+    assert active is None
+    for role in ("manager", "tenant"):
+        queue = client.get("/v1/maintenance-workflow?view=active", headers=staff[role])
+        assert queue.status_code == 200, queue.text
+        assert ticket["id"] in {item["id"] for item in queue.json()["items"]}
+    previous_worker = client.get(f"/v1/maintenance-tickets/{ticket['id']}/workflow", headers=staff["contractor0"])
+    assert previous_worker.status_code == 404, previous_worker.text
 
 
 def test_mnt_10_injection_does_not_approve_contractor_invoice_or_payment(client, migrator_engine, fixture_scanner):
@@ -732,8 +700,12 @@ def test_categories_and_statuses_are_the_prd_sets(client, migrator_engine):
             headers=staff["manager"],
             json={"action": "set_status", "status": status},
         )
-        assert moved.status_code == 200, moved.text
-        assert moved.json()["status"] == status
+        if status in {"IN_PROGRESS", "COMPLETION_REVIEW", "COMPLETED", "CLOSED", "SCHEDULED"}:
+            assert moved.status_code == 409, moved.text
+            assert moved.json()["error"]["code"] == "WORKFLOW_REQUIRED"
+        else:
+            assert moved.status_code == 200, moved.text
+            assert moved.json()["status"] == status
     missing_reason = client.post(
         f"/v1/maintenance-tickets/{ticket['id']}/transitions",
         headers=staff["manager"],
@@ -853,6 +825,28 @@ def _report(client, headers, description):
     response = client.post("/v1/maintenance-tickets", headers=headers, json={"description": description})
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def _workflow_assignment(client, staff, ticket_id):
+    party = client.post(
+        "/v1/parties",
+        headers={**staff["accounting"], "Idempotency-Key": f"repair-party-{ticket_id}"},
+        json={"display_name": "Repair company", "kind": "company"},
+    )
+    assert party.status_code == 201, party.text
+    profile = client.post(
+        "/v1/contractor-profiles",
+        headers=staff["manager"],
+        json={"party_id": party.json()["id"], "user_id": str(staff["contractor0_id"]), "approved": True, "trades": "plumbing"},
+    )
+    assert profile.status_code == 201, profile.text
+    assigned = client.post(
+        f"/v1/maintenance-tickets/{ticket_id}/workflow",
+        headers={**staff["manager"], "Idempotency-Key": f"assign-{ticket_id}"},
+        json={"action": "assign", "contractor_profile_id": profile.json()["id"], "scope": "Repair the reported problem."},
+    )
+    assert assigned.status_code == 200, assigned.text
+    return assigned.json()
 
 
 def _assign(client, staff, ticket_id, contractor="contractor0", party_name="Assigned Co"):

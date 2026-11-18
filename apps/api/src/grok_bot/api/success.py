@@ -62,7 +62,7 @@ class LoginOut(APIModel):
 
 class StepUpOut(APIModel):
     id: str
-    method: Literal["LOCAL_DEV_PASSWORD"]
+    method: Literal["LOCAL_DEV_PASSWORD", "SIMULATED_APPROVAL"]
     production_oidc: Literal[False]
     request_id: str
 
@@ -359,6 +359,8 @@ class BatchItemOut(APIModel):
     liability_id: str | None
     status: str
     provider_key: str
+    channel: Literal["ZELLE", "VENMO", "STRIPE_ACH"] | None = None
+    destination_label: str | None = None
 
 
 class BatchOut(APIModel):
@@ -753,9 +755,53 @@ class TicketPublicOut(APIModel):
     request_id: str
 
 
+class MaintenanceIssueRecordOut(APIModel):
+    id: str
+    organization_id: str
+    ticket_id: str
+    key: str
+    title: str
+    status: str
+    evidence: str
+    version: int
+    confirmed_by: str | None
+    confirmed_at: str | None
+    created_at: str
+    updated_at: str
+
+
+class MaintenanceIssueOut(APIModel):
+    key: str
+    title: str
+    status: Literal["open", "reported_resolved"]
+    evidence: str
+
+
+class MaintenanceAnalysisOut(APIModel):
+    historical_examples: int = 0
+    issues: list[MaintenanceIssueOut] = []
+    assistant_stage: Literal["triage", "handoff"] | None = None
+    status: Literal["ready", "unavailable", "failed", "stale"]
+    summary: str
+    category: str
+    priority: str
+    next_action: str
+    follow_up: list[str]
+    images_analyzed: int
+    video_frames_analyzed: int
+    audio_analyzed: Literal[False]
+    model: str | None
+    source: Literal["rules", "model"] | None = None
+    plan_version: int | None = None
+    trade: str | None = None
+    repair_steps: list[str] = []
+
+
 class TicketContractorOut(APIModel):
     id: str
     ticket_number: int
+    analysis: MaintenanceAnalysisOut | None = None
+    notification_status: str | None = None
     status: str
     priority: str
     verification: str
@@ -781,6 +827,7 @@ class TicketContractorOut(APIModel):
 
 
 class MaintenanceMessageOut(APIModel):
+    author_role: Literal["tenant", "manager", "contractor", "system"] = "tenant"
     id: str
     body: str
     created_at: str

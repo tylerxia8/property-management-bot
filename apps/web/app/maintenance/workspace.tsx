@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, API_BASE, clearToken, getToken, setToken } from "../../lib/api";
+import WorkflowPanel from "./workflow-panel";
 
 type Home = {
   lease_id: string;
@@ -24,6 +25,18 @@ type Summary = {
   unit_label: string | null;
 };
 type Ticket = Summary & {
+  analysis?: {
+    status: "ready" | "unavailable" | "failed" | "stale";
+    summary: string;
+    next_action: string;
+    follow_up: string[];
+    images_analyzed: number;
+    video_frames_analyzed: number;
+    source?: "rules" | "model" | null;
+    trade?: string | null;
+    repair_steps?: string[];
+  } | null;
+  notification_status?: string | null;
   verification: string;
   handoff: boolean;
   next_questions: string[];
@@ -33,6 +46,12 @@ type Ticket = Summary & {
   messages: { id: string; body: string; created_at: string }[];
   media: { id: string; status: string; rejection_reason: string | null; content_type: string | null }[];
   history: { status: string; reason: string | null; created_at: string }[];
+};
+type Attachment = {
+  file: File;
+  key: string;
+  slot?: { id: string; upload_url: string; required_headers: Record<string, string> };
+  uploaded?: boolean;
 };
 const categories = {
   general: "Something else",
@@ -53,10 +72,10 @@ const fieldLabels: Record<string, string> = {
   entry_safety: "Entry and safety",
 };
 const statusNames: Record<string, string> = {
-  INTAKE_OPEN: "Request received",
+  INTAKE_OPEN: "Understanding the problem",
   TRIAGE_PENDING: "Home verification needed",
-  MANAGER_REVIEW: "Under manager review",
-  ASSIGNMENT_PENDING: "Awaiting assignment",
+  MANAGER_REVIEW: "Preparing repair plan",
+  ASSIGNMENT_PENDING: "Repair plan ready",
   ASSIGNED: "Assigned",
   SCHEDULING: "Scheduling",
   SCHEDULED: "Scheduled",
@@ -64,9 +83,9 @@ const statusNames: Record<string, string> = {
   COMPLETION_REVIEW: "Completion review",
   COMPLETED: "Completed",
   CLOSED: "Closed",
-  WAITING_TENANT: "Waiting for resident",
+  WAITING_TENANT: "One detail needed",
   WAITING_PARTS: "Waiting for parts",
-  WAITING_APPROVAL: "Waiting for approval",
+  WAITING_APPROVAL: "Waiting for an update",
   CANCELED: "Canceled",
   REOPENED: "Reopened",
 };
@@ -85,13 +104,25 @@ const date = (v: string) =>
     minute: "2-digit",
   });
 async function read(path: string, init?: RequestInit) {
-  const response = await api(path, init);
-  const body = await response.json();
-  if (!response.ok)
-    throw new Error(
-      body.error?.message || "We couldn't save that change. Please try again.",
-    );
-  return body;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await api(path, { ...init, signal: AbortSignal.timeout(180000) });
+      if (attempt < 2 && (!init?.method || init.method === "GET") && (response.status === 429 || response.status >= 500)) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+        continue;
+      }
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error?.message || "We couldn't save that change. Please try again.");
+      return body;
+    } catch (error) {
+      if (attempt < 2 && (!init?.method || init.method === "GET") && (error instanceof TypeError || error instanceof DOMException && error.name === "TimeoutError")) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 export default function MaintenanceWorkspace({
@@ -108,24 +139,18 @@ export default function MaintenanceWorkspace({
   const [items, setItems] = useState<Summary[]>([]),
     [cursor, setCursor] = useState<string | null>(null),
     [ticket, setTicket] = useState<Ticket | null>(null);
-  const [description, setDescription] = useState(""),
-    [category, setCategory] = useState(""),
-    [location, setLocation] = useState(""),
-    [onset, setOnset] = useState(""),
-    [contact, setContact] = useState(""),
-    [access, setAccess] = useState(""),
-    [safety, setSafety] = useState("");
-  const [followUp, setFollowUp] = useState(""),
-    [field, setField] = useState(""),
-    [status, setStatus] = useState("MANAGER_REVIEW"),
-    [reason, setReason] = useState("");
+  const [description, setDescription] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [followUp, setFollowUp] = useState("");
   const [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const lock = useRef(false),
     request = useRef<{ fingerprint: string; key: string } | null>(null),
     heading = useRef<HTMLHeadingElement>(null);
-  const uploadInput = useRef<HTMLInputElement>(null);
+  const savedTicket = useRef<string | null>(null);
+  const analysisRequest = useRef<{ id: string; key: string } | null>(null);
+  const followUpRequest = useRef<{ body: string; key: string } | null>(null);
   async function loadList(more = false) {
     const result = await read(
       `/v1/maintenance-tickets?limit=${manager ? 30 : 8}${more && cursor ? `&before=${cursor}` : ""}`,
@@ -136,12 +161,8 @@ export default function MaintenanceWorkspace({
   function show(value: Ticket, focus = false) {
     setTicket(value);
     setFollowUp("");
-    setField(
-      value.missing_fields.find(
-        (key: string) => fieldLabels[key] && key !== "media",
-      ) || "general",
-    );
-    setStatus(value.status);
+    followUpRequest.current = null;
+    analysisRequest.current = null;
     const url = new URL(window.location.href);
     url.searchParams.set("ticket", value.id);
     window.history.replaceState(null, "", url);
@@ -196,6 +217,26 @@ export default function MaintenanceWorkspace({
       active = false;
     };
   }, [manager, router]);
+  useEffect(() => {
+    if (!ticket || !["PENDING", "QUEUED", "ACCEPTED", "SENDING"].includes(ticket.notification_status || "")) return;
+    let active = true;
+    let polling = false;
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      if (polling || lock.current) return;
+      if (++attempts > 20) { clearInterval(timer); return; }
+      polling = true;
+      try {
+        const value = await read(`/v1/maintenance-tickets/${ticket.id}`);
+        if (active) setTicket(value);
+      } catch {
+        if (active) setNotice("Your request is saved. Refresh to check the latest notification status.");
+      } finally {
+        polling = false;
+      }
+    }, 3000);
+    return () => { active = false; clearInterval(timer); };
+  }, [ticket?.id, ticket?.notification_status]);
   async function run(name: string, action: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true;
@@ -217,156 +258,166 @@ export default function MaintenanceWorkspace({
       setBusy("");
     }
   }
+  async function analyze(id: string) {
+    if (analysisRequest.current?.id !== id)
+      analysisRequest.current = { id, key: crypto.randomUUID() };
+    setTicket((current) => current?.analysis ? { ...current, analysis: { ...current.analysis, status: "stale" } } : current);
+    try {
+      const value = await read(`/v1/maintenance-tickets/${id}/analyze`, {
+        method: "POST",
+        headers: { "Idempotency-Key": analysisRequest.current.key },
+      });
+      setTicket(value);
+      analysisRequest.current = null;
+      setNotice(value.analysis?.status === "ready"
+        ? "Your repair plan is ready. See the next step below."
+        : "Your request is saved. Prepare the repair plan below.");
+    } catch {
+      setNotice("Your request is saved. The repair plan could not finish; retry planning below.");
+    }
+  }
+  function stage(files: FileList | null) {
+    if (!files) return;
+    const incoming = Array.from(files);
+    if (attachments.filter((item) => !item.slot).length + incoming.length + (ticket?.media.length || 0) > 10) {
+      setError("You can attach up to 10 files per request.");
+      return;
+    }
+    for (const file of incoming) {
+      const isVideo = /\.(mp4|mov)$/i.test(file.name);
+      if (!/\.(jpe?g|png|heic|heif|mp4|mov)$/i.test(file.name)) {
+        setError("Choose a JPEG, PNG, HEIC, HEIF, MP4 or MOV file.");
+        return;
+      }
+      if (file.size > (isVideo ? 200 : 20) * 1024 * 1024) {
+        setError(isVideo ? "Choose a video smaller than 200 MB and no longer than 2 minutes." : "Choose a photo smaller than 20 MB.");
+        return;
+      }
+    }
+    setError("");
+    setAttachments((old) => [...old, ...incoming.map((file) => ({ file, key: crypto.randomUUID() }))]);
+  }
+  async function finishAttachments(id: string) {
+    let uploadError: unknown;
+    try {
+      for (const attachment of attachments) {
+        await upload(attachment, id);
+        setAttachments((old) => old.filter((item) => item.key !== attachment.key));
+      }
+    } catch (error) {
+      uploadError = error;
+    }
+    await analyze(id);
+    await loadList();
+    if (uploadError) throw uploadError;
+  }
   async function report(event: FormEvent) {
     event.preventDefault();
     await run("report", async () => {
-      const selected = homes.find((h) => h.lease_id === home);
-      const payload = {
-        description: description.trim(),
-        ...(category ? { category } : {}),
-        ...(selected
-          ? { unit_id: selected.unit_id, lease_id: selected.lease_id }
-          : {}),
-        location: location.trim() || null,
-        onset: onset.trim() || null,
-        contact: contact.trim() || null,
-        preferred_access_windows: access.trim() ? [access.trim()] : null,
-        safety_concerns: safety.trim() || null,
-      };
-      const fingerprint = JSON.stringify(payload);
-      if (request.current?.fingerprint !== fingerprint)
-        request.current = { fingerprint, key: crypto.randomUUID() };
-      const value = await read("/v1/maintenance-tickets", {
-        method: "POST",
-        headers: { "Idempotency-Key": request.current!.key },
-        body: fingerprint,
-      });
-      show(value, true);
-      setNotice(
-        "Your request is saved. You can return to it from Your requests.",
-      );
-      await loadList();
+      if (!savedTicket.current) {
+        const selected = homes.find((h) => h.lease_id === home);
+        const payload = {
+          description: description.trim(),
+          ...(selected ? { unit_id: selected.unit_id, lease_id: selected.lease_id } : {}),
+        };
+        const fingerprint = JSON.stringify(payload);
+        if (request.current?.fingerprint !== fingerprint)
+          request.current = { fingerprint, key: crypto.randomUUID() };
+        const value = await read("/v1/maintenance-tickets", {
+          method: "POST",
+          headers: { "Idempotency-Key": request.current!.key },
+          body: fingerprint,
+        });
+        savedTicket.current = value.id;
+        show(value, true);
+      }
+      setNotice("Your request is saved. Finishing attachments and assessment...");
+      await finishAttachments(savedTicket.current!);
     });
   }
   async function sendFollowUp(event: FormEvent) {
     event.preventDefault();
     if (!ticket) return;
     await run("followup", async () => {
-      const value = await read(
-        `/v1/maintenance-tickets/${ticket.id}/messages`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            body: followUp.trim(),
-            field_key: field || "general",
-          }),
-        },
-      );
+      const body = followUp.trim();
+      if (followUpRequest.current?.body !== body)
+        followUpRequest.current = { body, key: crypto.randomUUID() };
+      const value = await read(`/v1/maintenance-tickets/${ticket.id}/messages`, {
+        method: "POST",
+        headers: { "Idempotency-Key": followUpRequest.current.key },
+        body: JSON.stringify({ body, field_key: "general" }),
+      });
       setTicket(value);
       setFollowUp("");
-      setField(
-        value.missing_fields.find(
-          (key: string) => fieldLabels[key] && key !== "media",
-        ) || "general",
-      );
-      setNotice("Follow-up saved.");
+      followUpRequest.current = null;
+      analysisRequest.current = null;
+      await analyze(ticket.id);
       await loadList();
     });
   }
-  async function skipPhoto() {
-    if (!ticket) return;
-    await run("skip", async () => {
-      setTicket(
-        await read(`/v1/maintenance-tickets/${ticket.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            field_key: "media",
-            status: "NOT_PRACTICAL",
-            reason: "Resident chose to continue without photos or videos.",
-          }),
+  async function upload(attachment: Attachment, ticketId: string) {
+    const { file } = attachment;
+    if (attachment.slot) {
+      const current: Ticket = await read(`/v1/maintenance-tickets/${ticketId}`);
+      if (current.media.some((media) => media.id === attachment.slot?.id && media.status === "READY")) return;
+    }
+    const isVideo = /\.(mp4|mov)$/i.test(file.name);
+    if (!/\.(jpe?g|png|heic|heif|mp4|mov)$/i.test(file.name))
+      throw new Error("Choose a JPEG, PNG, HEIC, HEIF, MP4 or MOV file.");
+    const limit = (isVideo ? 200 : 20) * 1024 * 1024;
+    if (file.size > limit)
+      throw new Error(isVideo ? "Choose a video smaller than 200 MB and no longer than 2 minutes." : "Choose a photo smaller than 20 MB.");
+    const bytes = await file.arrayBuffer();
+    const hash = Array.from(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+    )
+      .map((n) => n.toString(16).padStart(2, "0"))
+      .join("");
+    const contentType = isVideo
+      ? (/\.mov$/i.test(file.name) ? "video/quicktime" : "video/mp4")
+      : /\.hei[cf]$/i.test(file.name)
+      ? "image/heic"
+      : /\.png$/i.test(file.name)
+        ? "image/png"
+        : "image/jpeg";
+    const slot = await read(
+      `/v1/maintenance-tickets/${ticketId}/media-uploads`,
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": attachment.key },
+        body: JSON.stringify({
+          filename: file.name,
+          content_type: contentType,
+          size_bytes: file.size,
+          sha256: hash,
         }),
-      );
-      setNotice("Your request stays open without photos or videos.");
-    });
-  }
-  async function handoff() {
-    if (!ticket) return;
-    await run("handoff", async () => {
-      setTicket(
-        await read(`/v1/maintenance-tickets/${ticket.id}/messages`, {
-          method: "POST",
-          body: JSON.stringify({
-            body: "Please hand off this request to the manager. That's all for now.",
-          }),
-        }),
-      );
-      setNotice(
-        "Intake finished. Your request is available for manager review; no notification was sent.",
-      );
-      await loadList();
-    });
-  }
-  async function upload(file: File) {
-    if (!ticket) return;
-    await run("upload", async () => {
-      const isVideo = /\.(mp4|mov)$/i.test(file.name);
-      if (!/\.(jpe?g|png|heic|heif|mp4|mov)$/i.test(file.name))
-        throw new Error("Choose a JPEG, PNG, HEIC, HEIF, MP4 or MOV file.");
-      const limit = (isVideo ? 200 : 20) * 1024 * 1024;
-      if (file.size > limit)
-        throw new Error(isVideo ? "Choose a video smaller than 200 MB and no longer than 2 minutes." : "Choose a photo smaller than 20 MB.");
-      const bytes = await file.arrayBuffer();
-      const hash = Array.from(
-        new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
-      )
-        .map((n) => n.toString(16).padStart(2, "0"))
-        .join("");
-      const contentType = isVideo
-        ? (/\.mov$/i.test(file.name) ? "video/quicktime" : "video/mp4")
-        : /\.hei[cf]$/i.test(file.name)
-        ? "image/heic"
-        : /\.png$/i.test(file.name)
-          ? "image/png"
-          : "image/jpeg";
-      const slot = await read(
-        `/v1/maintenance-tickets/${ticket.id}/media-uploads`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            filename: file.name,
-            content_type: contentType,
-            size_bytes: file.size,
-            sha256: hash,
-          }),
-        },
-      );
+      },
+    );
+    attachment.slot = slot;
+    if (!attachment.uploaded) {
       const response = await fetch(`${API_BASE}${slot.upload_url}`, {
+        signal: AbortSignal.timeout(180000),
         method: "POST",
         headers: slot.required_headers,
         body: bytes,
       });
       if (!response.ok)
-        throw new Error(
-          "The attachment did not finish uploading. Your maintenance request is still saved.",
-        );
-      const result = await read(`/v1/media/${slot.id}/complete`, {
-        method: "POST",
-      });
-      await refresh(ticket.id);
-      if (result.status !== "READY")
-        throw new Error(
-          "This attachment could not be accepted. Try another photo or a video no longer than 2 minutes, or continue without attachments.",
-        );
-      setNotice(
-        "Attachment saved. Metadata is removed from the downloadable copy.",
-      );
+        throw new Error("The attachment did not finish uploading. Your request is saved. Retry the remaining attachments.");
+      attachment.uploaded = true;
+    }
+    const result = await read(`/v1/media/${slot.id}/complete`, {
+      method: "POST",
     });
-    if (uploadInput.current) uploadInput.current.value = "";
+    if (result.status !== "READY")
+      throw new Error(
+        "This attachment could not be accepted. Try another photo or a video no longer than 2 minutes, or continue without attachments.",
+      );
+    analysisRequest.current = null;
   }
   async function openPhoto(id: string, isVideo: boolean) {
     await run("photo", async () => {
       const result = await read(`/v1/media/${id}/download`);
-      const response = await fetch(`${API_BASE}${result.download_url}`);
+      const response = await fetch(`${API_BASE}${result.download_url}`, { signal: AbortSignal.timeout(180000) });
       if (!response.ok)
         throw new Error("This attachment is unavailable. Please try again.");
       const blob = await response.blob();
@@ -376,26 +427,6 @@ export default function MaintenanceWorkspace({
       a.download = isVideo ? `maintenance-video-${id}.mp4` : `maintenance-photo-${id}.jpg`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    });
-  }
-  async function update(event: FormEvent) {
-    event.preventDefault();
-    if (!ticket) return;
-    await run("status", async () => {
-      await read(`/v1/maintenance-tickets/${ticket.id}/transitions`, {
-        method: "POST",
-        body: JSON.stringify({
-          action: status === "CANCELED" ? "cancel" : "set_status",
-          status,
-          reason: reason.trim(),
-        }),
-      });
-      await refresh(ticket.id);
-      setReason("");
-      setNotice(
-        "Status updated. The resident can see this change in their request.",
-      );
-      await loadList();
     });
   }
   async function managerDemo() {
@@ -411,19 +442,36 @@ export default function MaintenanceWorkspace({
   function newRequest() {
     setTicket(null);
     setDescription("");
-    setLocation("");
-    setOnset("");
-    setContact("");
-    setAccess("");
-    setSafety("");
-    setCategory("");
+    setAttachments([]);
+    savedTicket.current = null;
+    analysisRequest.current = null;
+    followUpRequest.current = null;
     setNotice("");
     setError("");
     request.current = null;
     window.history.replaceState(null, "", window.location.pathname);
   }
-  const questionFields =
-    ticket?.missing_fields.filter((key: string) => fieldLabels[key]) || [];
+  const attachmentPicker = (
+    <div className="photo-section">
+      {photosEnabled ? (
+        <label className="photo-upload">
+          Photos or videos <span className="optional-label">Optional</span>
+          <input type="file" multiple accept=".jpg,.jpeg,.png,.heic,.heif,.mp4,.mov" disabled={!!busy} onChange={(event) => { stage(event.target.files); event.target.value = ""; }} />
+          <small>Up to 10 files. Photos up to 20 MB; videos up to 200 MB and 2 minutes. Only record if safe.</small>
+        </label>
+      ) : <p className="field-help">Attachments are unavailable here. You can still send your description.</p>}
+      {attachments.length ? (
+        <ul className="photo-list">
+          {attachments.map((attachment) => (
+            <li key={attachment.key}>
+              <span>{attachment.file.name}</span>
+              <button type="button" className="secondary-button" disabled={!!busy} onClick={() => setAttachments((old) => old.filter((item) => item.key !== attachment.key))}>Remove</button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
   return (
     <>
       <p>
@@ -449,7 +497,7 @@ export default function MaintenanceWorkspace({
       <p>
         {manager
           ? "Review requests, inspect photos and videos, and keep residents informed with clear status updates."
-          : "Tell us what's wrong. We'll keep the details together so your property manager can plan the repair."}
+          : "Tell us what happened. Add a photo or video if you can, and we’ll help work out the next step."}
       </p>
       <div className="maintenance-warning">
         <strong>Immediate danger?</strong> Leave the area if safe and call 911
@@ -485,6 +533,8 @@ export default function MaintenanceWorkspace({
                   : "New repair request"}
             </h2>
             <div>
+              {manager ? <Link href="/maintenance/phone">Phone inbox</Link> : null}
+              {manager ? <Link href="/maintenance/jobs">Repair board</Link> : null}
               {ticket && !manager ? (
                 <button type="button" disabled={!!busy} onClick={newRequest}>
                   New request
@@ -510,48 +560,17 @@ export default function MaintenanceWorkspace({
           {!ticket && !manager ? (
             <form className="maintenance-intake" onSubmit={report}>
               <div className="form-intro">
-                <span className="step-label">01 / THE PROBLEM</span>
-                <h3>A few details go a long way.</h3>
-                <p>
-                  Required fields are marked *. You can add photos and videos after saving
-                  your request.
-                </p>
+                <h3>What needs fixing?</h3>
+                <p>Describe the problem in your own words.</p>
               </div>
-              {homes.length ? (
+              {homes.length > 1 ? (
                 <label>
-                  Your home *
-                  <select
-                    value={home}
-                    onChange={(e) => setHome(e.target.value)}
-                    required
-                  >
-                    {homes.map((h) => (
-                      <option key={h.lease_id} value={h.lease_id}>
-                        {h.property_name} / Unit {h.unit_label}
-                      </option>
-                    ))}
+                  Your home
+                  <select value={home} onChange={(event) => setHome(event.target.value)} required disabled={!!busy}>
+                    {homes.map((item) => <option key={item.lease_id} value={item.lease_id}>{item.property_name} / Unit {item.unit_label}</option>)}
                   </select>
                 </label>
-              ) : (
-                <p className="inline-note">
-                  No tenancy is linked to this account. You can still report an
-                  issue; your manager will need to confirm the home.
-                </p>
-              )}
-              <label>
-                Type of issue
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  <option value="">Choose automatically</option>
-                  {Object.entries(categories).map(([key, value]) => (
-                    <option key={key} value={key}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              ) : !homes.length ? <p className="inline-note">Your manager will confirm which home this request is for.</p> : null}
               <label>
                 What needs attention?
                 <textarea
@@ -559,6 +578,7 @@ export default function MaintenanceWorkspace({
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={5000}
                   required
+                  disabled={!!busy}
                   placeholder="For example: Water drips from the pipe under the kitchen sink when I run the tap."
                   aria-describedby="description-help"
                 />
@@ -567,60 +587,9 @@ export default function MaintenanceWorkspace({
                 Required *. Describe what you can observe. Don't dismantle
                 equipment or put yourself at risk.
               </p>
-              <label>
-                Exact location
-                <input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  maxLength={500}
-                  placeholder="Kitchen, under the sink"
-                />
-              </label>
-              <label>
-                When did it start?
-                <input
-                  value={onset}
-                  onChange={(e) => setOnset(e.target.value)}
-                  maxLength={500}
-                  placeholder="Yesterday; only when the tap runs"
-                />
-              </label>
-              <div className="form-intro">
-                <span className="step-label">02 / PLANNING THE VISIT</span>
-                <p>
-                  These details are optional. Availability is a preference, not
-                  a confirmed appointment or permission to enter.
-                </p>
-              </div>
-              <label>
-                Contact preferences
-                <input
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
-                  maxLength={500}
-                  placeholder="Best way and time to reach you"
-                />
-              </label>
-              <label>
-                Preferred access windows
-                <input
-                  value={access}
-                  onChange={(e) => setAccess(e.target.value)}
-                  maxLength={500}
-                  placeholder="Weekdays after 3pm"
-                />
-              </label>
-              <label>
-                Safety concerns or entry instructions
-                <textarea
-                  value={safety}
-                  onChange={(e) => setSafety(e.target.value)}
-                  maxLength={1000}
-                  placeholder="For example: A dog is in the home. Please call before arriving. Do not include keys or door codes."
-                />
-              </label>
+              {attachmentPicker}
               <button type="submit" disabled={!!busy || !description.trim()}>
-                {busy === "report" ? "Saving request..." : "Report issue"}
+                {busy === "report" ? "Sending request..." : "Send request"}
               </button>
             </form>
           ) : null}
@@ -670,6 +639,25 @@ export default function MaintenanceWorkspace({
                 </div>
               ) : null}
               <div className="ticket-body">
+                <section className="question-panel" aria-live="polite">
+                  <h3>Maintenance delivery</h3>
+                  <p>{ticket.notification_status === "SIMULATED"
+                    ? "Routed to the simulated maintenance inbox. No real person has been contacted. A visit still needs to be arranged."
+                    : ticket.notification_status === "SUPPRESSED"
+                      ? "No maintenance notification was sent because this request was closed or canceled."
+                    : ticket.notification_status === "DELIVERED"
+                      ? "The maintenance notification was delivered. A visit has not been confirmed."
+                      : ["SENT", "ACCEPTED", "SENDING", "QUEUED"].includes(ticket.notification_status || "")
+                        ? "The maintenance notification is with the phone provider. Delivery and a visit are not yet confirmed."
+                        : ticket.notification_status === "PENDING"
+                          ? "Preparing the maintenance notification. This will update automatically."
+                          : ticket.notification_status === "DELIVERY_UNKNOWN"
+                            ? "The notification result is uncertain. Your manager needs to confirm delivery before sending again."
+                            : ["FAILED", "UNDELIVERED"].includes(ticket.notification_status || "")
+                              ? "The maintenance notification failed. Your manager can still see this request and needs to arrange the repair."
+                              : "Saved in the manager queue. Maintenance notifications are not connected, so nobody has been contacted."}</p>
+                  {manager ? <Link href="/maintenance/phone">Open maintenance inbox</Link> : null}
+                </section>
                 <div className="ticket-description">
                   <h3>Reported issue</h3>
                   <p>{ticket.description}</p>
@@ -683,9 +671,7 @@ export default function MaintenanceWorkspace({
                   <p>
                     {ticket.emergency
                       ? "Seek emergency help now. Your report is saved, but this website cannot arrange emergency assistance."
-                      : manager
-                        ? "Review the resident's details and attachments, then save a status with a clear note. Arrange any dispatch or visit directly; this website does not send notifications."
-                        : ["COMPLETED", "CLOSED", "CANCELED"].includes(
+                      : ["COMPLETED", "CLOSED", "CANCELED"].includes(
                               ticket.status,
                             )
                           ? "This request is no longer active. Contact your manager if the problem returns."
@@ -694,7 +680,7 @@ export default function MaintenanceWorkspace({
                             : ticket.status === "SCHEDULED"
                               ? "Your manager has marked a visit as scheduled. Confirm the time and entry arrangements directly with them."
                               : ticket.status.startsWith("WAITING_")
-                                ? "Your manager needs more information, parts, or approval before the repair can continue. Read their latest note below."
+                                ? ticket.analysis?.next_action || "The repair needs more information or parts. Read the next step below."
                                 : ticket.status === "COMPLETION_REVIEW"
                                   ? "Work has been marked ready for review. Your manager will confirm the outcome before closing this request."
                                   : [
@@ -702,13 +688,31 @@ export default function MaintenanceWorkspace({
                                         "SCHEDULING",
                                         "ASSIGNMENT_PENDING",
                                       ].includes(ticket.status)
-                                    ? "Your manager is coordinating the repair. Check the activity below and confirm any visit directly."
-                                    : ticket.handoff
-                                      ? "Your details are ready for your manager to review. Check back here for status updates. A visit has not been scheduled."
-                                      : "Add any missing details below, then finish intake. Your manager can review the request even if you can't provide every detail."}
+                                    ? ticket.analysis?.next_action || "Use the repair plan below to arrange an inspection and confirm access."
+                                    : "First identify the problem, then work out the repair. No manager review is needed to prepare the plan."}
                   </p>
                 </div>
-                {ticket.intake?.some(
+                    {ticket.analysis?.status === "ready" ? (
+                      <div className="question-panel">
+                        <h3>What needs fixing</h3>
+                        <p>{ticket.analysis.summary}</p>
+                        <h3>How to resolve it</h3>
+                        {ticket.analysis.trade ? <p><strong>Suitable trade:</strong> {ticket.analysis.trade}</p> : null}
+                        <ol>{ticket.analysis.repair_steps?.map((step) => <li key={step}>{step}</li>)}</ol>
+                        <h3>Next step</h3>
+                        <p>{ticket.analysis.next_action}</p>
+                        <p className="field-help">{ticket.analysis.source === "rules" ? "Description-based plan. A technician must confirm the cause." : "AI-assisted plan. A technician must confirm the cause."}</p>
+                        {ticket.analysis.images_analyzed || ticket.analysis.video_frames_analyzed ? <p className="field-help">Reviewed {ticket.analysis.images_analyzed} photo(s) and {ticket.analysis.video_frames_analyzed} video frame(s). Video audio was not assessed.</p> : null}
+                        {ticket.analysis.follow_up.length ? <ul>{ticket.analysis.follow_up.map((question) => <li key={question}>{question}</li>)}</ul> : null}
+                      </div>
+                    ) : (
+                      <div className="question-panel">
+                        <h3>Prepare the repair plan</h3>
+                        <p>{busy ? "Working out the problem and next step..." : "Use the description to identify the problem, a suitable trade, and the steps needed to resolve it."}</p>
+                        {!busy && !attachments.length ? <button type="button" className="secondary-button" onClick={() => void run("analyze", async () => { await analyze(ticket.id); await loadList(); })}>Prepare repair plan</button> : null}
+                      </div>
+                    )}
+                {manager && ticket.intake?.some(
                   (f) => fieldLabels[f.field_key] && f.value_text,
                 ) ? (
                   <details className="intake-details">
@@ -761,90 +765,15 @@ export default function MaintenanceWorkspace({
                       </li>
                     ))}
                   </ul>
-                  {!manager && photosEnabled ? (
-                    <label className="photo-upload">
-                      {busy === "upload"
-                        ? "Uploading and checking attachment..."
-                        : "Attach a photo or video"}
-                      <input
-                        ref={uploadInput}
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.heic,.heif,.mp4,.mov"
-                        disabled={!!busy || ticket.media?.length >= 10}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) void upload(file);
-                        }}
-                      />
-                      <small>
-                        Photos: JPEG, PNG, HEIC or HEIF, up to 20 MB. Videos: MP4 or MOV, up to 200 MB and 2 minutes. Up to 10 files per request. Videos may take a minute to process; keep this page open.
-                      </small>
-                    </label>
-                  ) : !manager ? (
-                    <p>
-                      Photo and video attachments are unavailable in this environment.
-                      Your report can continue without them.
-                    </p>
-                  ) : null}
-                  {!manager && ticket.missing_fields.includes("media") ? (
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={!!busy}
-                      onClick={() => void skipPhoto()}
-                    >
-                      Continue without photos or videos
+                  {!manager ? attachmentPicker : null}
+                  {!manager && attachments.length ? (
+                    <button type="button" disabled={!!busy} onClick={() => void run("upload", () => finishAttachments(ticket.id))}>
+                      {busy ? "Finishing attachments..." : "Send remaining attachments"}
                     </button>
                   ) : null}
                 </section>
-                {manager ? (
-                  <form onSubmit={update}>
-                    <div className="form-intro">
-                      <h3>Update this request</h3>
-                      <p>
-                        Record a status and a clear note for the resident.
-                        Dispatch remains manual.
-                      </p>
-                    </div>
-                    <label>
-                      Status
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                      >
-                        {Object.entries(statusNames).map(([key, value]) => (
-                          <option key={key} value={key}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Update note
-                      <textarea
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        required
-                        maxLength={2000}
-                        placeholder="What changed, and what should the resident expect next?"
-                      />
-                    </label>
-                    <button disabled={!!busy || !reason.trim()}>
-                      {busy === "status" ? "Saving..." : "Save status update"}
-                    </button>
-                  </form>
-                ) : (
+                {!manager && ["INTAKE_OPEN", "TRIAGE_PENDING", "MANAGER_REVIEW", "WAITING_TENANT", "ASSIGNMENT_PENDING"].includes(ticket.status) ? (
                   <>
-                    {ticket.next_questions.length ? (
-                      <div className="question-panel">
-                        <h3>A little more detail</h3>
-                        <ul>
-                          {ticket.next_questions.map((q) => (
-                            <li key={q}>{q}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
                     <form onSubmit={sendFollowUp}>
                       <div className="form-intro">
                         <h3>
@@ -853,28 +782,10 @@ export default function MaintenanceWorkspace({
                             : "Add a follow-up"}
                         </h3>
                         <p>
-                          Answer one question at a time, or share an update.
+                          Share an update or answer a question above.
                           Your original request stays saved.
                         </p>
                       </div>
-                      {!ticket.emergency && questionFields.length ? (
-                        <label>
-                          What is this about?
-                          <select
-                            value={field}
-                            onChange={(e) => setField(e.target.value)}
-                          >
-                            <option value="general">General update</option>
-                            {questionFields
-                              .filter((k) => k !== "media")
-                              .map((k) => (
-                                <option key={k} value={k}>
-                                  {fieldLabels[k]}
-                                </option>
-                              ))}
-                          </select>
-                        </label>
-                      ) : null}
                       <label>
                         Follow-up
                         <textarea
@@ -888,17 +799,9 @@ export default function MaintenanceWorkspace({
                         {busy === "followup" ? "Saving..." : "Send follow-up"}
                       </button>
                     </form>
-                    {!ticket.handoff && !ticket.emergency ? (
-                      <button
-                        className="secondary-button"
-                        disabled={!!busy}
-                        onClick={() => void handoff()}
-                      >
-                        Finish intake for manager review
-                      </button>
-                    ) : null}
                   </>
-                )}
+                ) : null}
+                <WorkflowPanel key={ticket.id} ticketId={ticket.id} onChange={() => { void run("refresh", async () => { await refresh(ticket.id); await loadList(); }); }} />
                 <section className="request-history">
                   <h3>Request activity</h3>
                   <ol>
@@ -970,7 +873,7 @@ export default function MaintenanceWorkspace({
                   <li key={item.id}>
                     <button
                       className={`request-item ${ticket?.id === item.id ? "selected" : ""}`}
-                      disabled={!!busy}
+                      disabled={!!busy || attachments.length > 0}
                       aria-current={ticket?.id === item.id ? "true" : undefined}
                       onClick={() =>
                         void run("open", async () => {

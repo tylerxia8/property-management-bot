@@ -35,7 +35,7 @@ def safe_media_file(root: Path, key: str, *, allow_missing: bool = False) -> Pat
 
 
 SAFETY_MESSAGE = "If there is immediate danger, leave the area if safe and call 911 or the appropriate emergency service."
-GAS_GUIDANCE = "Do not operate electrical switches."
+GAS_GUIDANCE = "Leave the property immediately. Do not operate electrical switches. Don’t use appliances or a phone inside. Once safely outside and away from the gas smell, call Piedmont Natural Gas at 800-752-7504. Don’t return until the gas technician or emergency responders say it’s safe."
 FIELD_ORDER = (
     "identity_property",
     "description",
@@ -57,6 +57,16 @@ LIFE_SAFETY_TERMS = (
     "sparks",
     "electric shock",
     "i was shocked",
+    "arcing",
+    "arc flash",
+    "gave me a shock",
+    "gives me a shock",
+    "getting shocked",
+    "scalding water",
+    "water is scalding",
+    "burns my skin",
+    "burning my skin",
+    "scalded",
     "flooding",
     "sewage",
     "collapse",
@@ -70,7 +80,7 @@ LIFE_SAFETY_TERMS = (
     "live wire",
     "spark",
 )
-URGENT_TERMS = ("no heat", "no cooling", "no hot water")
+URGENT_TERMS = ("no heat", "no cooling")
 PLAYBOOKS = {
     "leak": {
         "exact_location": "Which room and fixture is leaking, and is the water clean or sewage?",
@@ -160,16 +170,19 @@ def create_unverified_ticket(session, organization_id, description: str, secret:
     )
 
 
-def add_message(session, organization_id, ticket_id, body: str, classifier_result: str | None, secret: str, clock, actor_id, field_key: str | None = None) -> dict:
+def add_message(session, organization_id, ticket_id, body: str, classifier_result: str | None, secret: str, clock, actor_id, field_key: str | None = None, origin: str | None = None) -> dict:
     ticket = _lock_ticket(session, organization_id, ticket_id)
     structured_answer = field_key is not None
+    previous_messages = session.scalars(text("SELECT body FROM ticket_messages WHERE organization_id=:org AND ticket_id=:ticket AND author_role='tenant' ORDER BY created_at,id"), {"org": organization_id, "ticket": ticket_id}).all()
     if field_key is not None and field_key != "general" and field_key not in PLAYBOOKS.get(ticket["category"], PLAYBOOKS["general"]):
         problem(422, "VALIDATION_ERROR", "Choose a valid follow-up question.")
     session.execute(
         text(
             """
-            INSERT INTO ticket_messages (id, organization_id, ticket_id, body, classifier_result)
-            VALUES (:id, :organization_id, :ticket_id, :body, :classifier_result)
+            INSERT INTO ticket_messages (id, organization_id, ticket_id, body, classifier_result, author_id, author_role, sender_label)
+            VALUES (:id, :organization_id, :ticket_id, :body, :classifier_result, CASE WHEN :origin = 'resident_phone' THEN NULL ELSE :actor_id END,
+              CASE WHEN :origin = 'resident_phone' OR :actor_id IS NULL OR :actor_id = (SELECT reporter_user_id FROM maintenance_tickets WHERE organization_id = :organization_id AND id = :ticket_id) THEN 'tenant' WHEN public.app_actor_is_manager() THEN 'manager' ELSE 'contractor' END,
+              CASE WHEN :origin = 'resident_phone' OR :actor_id IS NULL THEN 'Resident (unverified)' ELSE COALESCE((SELECT display_name FROM users WHERE organization_id = :organization_id AND id = :actor_id),'Resident') END)
             """
         ),
         {
@@ -178,9 +191,11 @@ def add_message(session, organization_id, ticket_id, body: str, classifier_resul
             "ticket_id": ticket_id,
             "body": body,
             "classifier_result": classifier_result,
+            "actor_id": actor_id,
+            "origin": origin,
         },
     )
-    life_safety, urgent = _classify(body)
+    life_safety, urgent = _classify(" ".join([ticket["description"], *previous_messages, body]))
     now = clock.now()
     if life_safety or ticket["emergency"]:
         _mark_emergency(
@@ -369,7 +384,8 @@ def request_upload(session, organization_id, ticket_id, declared_content_type: s
         text("SELECT count(*) FROM media_objects WHERE organization_id = :organization_id AND ticket_id = :ticket_id"),
         {"organization_id": organization_id, "ticket_id": ticket_id},
     ).scalar()
-    if count >= 10:
+    workflow = session.execute(text("SELECT EXISTS (SELECT 1 FROM work_orders WHERE organization_id=:org AND ticket_id=:ticket AND workflow_managed)"), {"org": organization_id, "ticket": ticket_id}).scalar_one()
+    if count >= (20 if workflow else 10):
         problem(422, "MEDIA_LIMIT", "This ticket already has the configured number of files.")
     if declared_content_type not in {"image/jpeg", "image/png", "image/heic", "image/heif", "video/mp4", "video/quicktime"}:
         problem(422, "MEDIA_TYPE", "Choose a JPEG, PNG, HEIC, HEIF, MP4 or MOV file.")
@@ -473,12 +489,23 @@ def store_and_scan(session, settings, organization_id, media_id, payload: bytes 
 
 
 def assign_contractor(session, organization_id, ticket_id, profile_id, scope: str, actor_id) -> dict:
+    ticket = _lock_ticket(session, organization_id, ticket_id)
+    if ticket["verification"] != "VERIFIED" or ticket["status"] in {"COMPLETED", "CLOSED", "CANCELED", "IN_PROGRESS", "COMPLETION_REVIEW"}:
+        problem(409, "ASSIGNMENT_UNAVAILABLE", "Verify the home and reopen completed work before assigning it.")
+    active = session.execute(text("SELECT id FROM assignments WHERE organization_id = :org AND ticket_id = :ticket AND id=:assignment AND status IN ('PENDING','ACCEPTED')"), {"org": organization_id, "ticket": ticket_id, "assignment": ticket["active_assignment_id"]}).first()
+    if active:
+        problem(409, "ASSIGNMENT_EXISTS", "This repair already has an active assignment.")
+    session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:scope,0))"), {"scope": f"maintenance-worker:{profile_id}"})
     profile = session.execute(
-        text("SELECT id, approved FROM contractor_profiles WHERE organization_id = :organization_id AND id = :id"),
+        text("SELECT id,approved,accepting_work,service_property_ids,service_categories,max_open_jobs FROM contractor_profiles WHERE organization_id = :organization_id AND id = :id"),
         {"organization_id": organization_id, "id": profile_id},
     ).mappings().first()
     if profile is None or not profile["approved"]:
         problem(409, "CONTRACTOR_NOT_APPROVED", "Assignment requires an approved contractor.")
+    property_id = session.scalar(text("SELECT property_id FROM units WHERE organization_id=:org AND id=:unit"), {"org": organization_id, "unit": ticket["unit_id"]})
+    open_jobs = session.scalar(text("SELECT count(*) FROM assignments a JOIN maintenance_tickets t ON t.organization_id=a.organization_id AND t.active_assignment_id=a.id WHERE a.organization_id=:org AND a.contractor_profile_id=:profile AND a.status<>'DECLINED' AND t.status NOT IN ('COMPLETED','CLOSED','CANCELED')"), {"org": organization_id, "profile": profile_id})
+    if not profile["accepting_work"] or open_jobs >= profile["max_open_jobs"] or (profile["service_property_ids"] and property_id not in profile["service_property_ids"]) or (profile["service_categories"] and ticket["category"] not in profile["service_categories"]):
+        problem(409, "WORKER_UNAVAILABLE", "Choose a worker covering this property and trade with room for another job.")
     assignment_id = uuid4()
     work_id = uuid4()
     session.execute(
@@ -506,8 +533,8 @@ def assign_contractor(session, organization_id, ticket_id, profile_id, scope: st
         {"id": work_id, "organization_id": organization_id, "ticket_id": ticket_id, "assignment_id": assignment_id},
     )
     session.execute(
-        text("UPDATE maintenance_tickets SET status = 'ASSIGNED' WHERE organization_id = :organization_id AND id = :id"),
-        {"organization_id": organization_id, "id": ticket_id},
+        text("UPDATE maintenance_tickets SET status = 'ASSIGNED', active_assignment_id = :assignment_id WHERE organization_id = :organization_id AND id = :id"),
+        {"organization_id": organization_id, "id": ticket_id, "assignment_id": assignment_id},
     )
     write_audit(
         session,
@@ -525,6 +552,9 @@ def assign_contractor(session, organization_id, ticket_id, profile_id, scope: st
 
 
 def respond_assignment(session, organization_id, assignment_id, user_id, accept: bool) -> dict:
+    assignment = session.execute(text("SELECT a.status,w.workflow_managed FROM assignments a JOIN work_orders w ON w.organization_id = a.organization_id AND w.assignment_id = a.id WHERE a.organization_id = :org AND a.id = :id FOR UPDATE OF a,w"), {"org": organization_id, "id": assignment_id}).mappings().first()
+    if assignment is None or assignment["status"] != "PENDING" or assignment["workflow_managed"]:
+        problem(409, "WORKFLOW_REQUIRED", "Respond to this assignment through the repair workflow.")
     row = _assignment_for_user(session, organization_id, assignment_id, user_id)
     status = "ACCEPTED" if accept else "DECLINED"
     session.execute(
@@ -535,6 +565,9 @@ def respond_assignment(session, organization_id, assignment_id, user_id, accept:
 
 
 def complete_work(session, organization_id, work_order_id, notes: str) -> dict:
+    work = session.execute(text("SELECT workflow_managed,started_at,authorization_state,approved_version,estimate_version FROM work_orders WHERE organization_id = :org AND id = :id FOR UPDATE"), {"org": organization_id, "id": work_order_id}).mappings().first()
+    if work is None or work["workflow_managed"] or not work["started_at"] or work["authorization_state"] != "APPROVED" or work["approved_version"] != work["estimate_version"]:
+        problem(409, "WORKFLOW_REQUIRED", "Complete approved, started work through the repair workflow.")
     session.execute(
         text(
             """
@@ -561,6 +594,9 @@ def submit_work_invoice(session, organization_id, work_order_id, body: dict) -> 
         text("SELECT id, ticket_id FROM work_orders WHERE organization_id = :organization_id AND id = :id"),
         {"organization_id": organization_id, "id": work_order_id},
     ).mappings().first()
+    approved = session.execute(text("SELECT authorization_state,estimate_version,approved_version,spending_limit_cents,confirmed_at FROM work_orders WHERE organization_id = :org AND id = :id FOR UPDATE"), {"org": organization_id, "id": work_order_id}).mappings().first()
+    if approved is None or approved["authorization_state"] != "APPROVED" or approved["estimate_version"] != approved["approved_version"] or approved["spending_limit_cents"] is None or body["total_cents"] > approved["spending_limit_cents"] or not approved["confirmed_at"]:
+        problem(409, "WORKFLOW_APPROVAL_REQUIRED", "Invoice submission requires resident-confirmed completion and a total within the approved estimate limit.")
     invoice = submit_invoice(session, organization_id, body)
     session.execute(
         text(
@@ -666,6 +702,9 @@ def create_appointment(session, organization_id, ticket_id, starts_at, ends_at, 
 
 
 def confirm_appointment(session, organization_id, appointment_id, entry_permission: str, notice_evidence: str | None, contractor_accepted: bool) -> dict:
+    managed = session.execute(text("SELECT 1 FROM maintenance_appointments a JOIN work_orders w ON w.organization_id = a.organization_id AND w.ticket_id = a.ticket_id WHERE a.organization_id = :org AND a.id = :id AND w.workflow_managed"), {"org": organization_id, "id": appointment_id}).first()
+    if managed:
+        problem(409, "WORKFLOW_REQUIRED", "The resident must confirm entry for the professional's proposed visit through the repair workflow.")
     appointment = session.execute(
         text(
             """
@@ -712,11 +751,18 @@ def confirm_appointment(session, organization_id, appointment_id, entry_permissi
 
 
 def record_estimate(session, organization_id, work_order_id, estimate_cents: int) -> dict:
+    ticket_id = session.execute(text("SELECT ticket_id FROM work_orders WHERE organization_id = :org AND id = :id"), {"org": organization_id, "id": work_order_id}).scalar()
+    if ticket_id is None:
+        problem(404, "NOT_FOUND", "Work order not found.")
+    _lock_ticket(session, organization_id, ticket_id)
+    work = session.execute(text("SELECT w.workflow_managed,w.started_at,a.status FROM work_orders w JOIN assignments a ON a.organization_id = w.organization_id AND a.id = w.assignment_id WHERE w.organization_id = :org AND w.id = :id FOR UPDATE OF w,a"), {"org": organization_id, "id": work_order_id}).mappings().first()
+    if work is None or work["workflow_managed"] or work["started_at"] or work["status"] != "ACCEPTED":
+        problem(409, "WORKFLOW_REQUIRED", "Submit this estimate through the accepted repair workflow.")
     session.execute(
         text(
             """
             UPDATE work_orders
-            SET estimate_cents = :estimate_cents, authorization_state = 'WAITING_APPROVAL'
+            SET estimate_cents = :estimate_cents, authorization_state = 'WAITING_APPROVAL', estimate_version = estimate_version + 1, approved_version = NULL, approved_by = NULL, approved_at = NULL, spending_limit_cents = NULL
             WHERE organization_id = :organization_id AND id = :id
             """
         ),
@@ -761,7 +807,7 @@ def get_ticket(session, organization_id, ticket_id, secret: str, viewer: str, pe
     if ticket["emergency"]:
         safety = SAFETY_MESSAGE
         if ticket["safety_context"] == "gas" or _gas(ticket["description"] or ""):
-            safety = f"{SAFETY_MESSAGE} {GAS_GUIDANCE}"
+            safety = GAS_GUIDANCE
     if ticket["emergency"]:
         priority = "EMERGENCY"
     elif ticket["urgent_triage"]:
@@ -787,6 +833,7 @@ def get_ticket(session, organization_id, ticket_id, secret: str, viewer: str, pe
         "urgent_triage": ticket["urgent_triage"],
         "handoff": ticket["handoff"],
         "category": ticket["category"],
+        "notification_status": ticket["notification_status"],
         "missing_fields": missing,
         "intake": intake,
         "next_questions": questions,
@@ -815,6 +862,9 @@ def get_ticket(session, organization_id, ticket_id, secret: str, viewer: str, pe
             "intake_token": payload["intake_token"],
         }
     payload.update(ticket_details(session, organization_id, ticket_id))
+    from grok_bot.domain.maintenance_analysis import latest_analysis
+
+    payload["analysis"] = latest_analysis(session, organization_id, payload)
     return payload
 
 
@@ -833,7 +883,7 @@ def can_view_ticket(session, organization_id, ticket_id, user_id, roles: tuple[s
     caps = _caps(roles)
     if "maintenance.manage" in caps or "maintenance.acknowledge" in caps:
         return "manager"
-    if "maintenance.respond" in caps and _user_assigned(session, organization_id, ticket_id, user_id):
+    if "maintenance.respond" in caps and (_user_assigned(session, organization_id, ticket_id, user_id) or session.execute(text("SELECT app_can_claim_maintenance_ticket(:ticket)"), {"ticket": ticket_id}).scalar_one()):
         return "contractor"
     if "maintenance.report" in caps and row["reporter_user_id"] == user_id:
         return "tenant"
@@ -853,6 +903,7 @@ def _user_assigned(session, organization_id, ticket_id, user_id) -> bool:
             JOIN contractor_profiles AS c
               ON c.id = a.contractor_profile_id AND c.organization_id = a.organization_id
             WHERE a.organization_id = :organization_id AND a.ticket_id = :ticket_id AND c.user_id = :user_id
+              AND a.id = (SELECT active_assignment_id FROM maintenance_tickets WHERE organization_id = :organization_id AND id = :ticket_id)
             """
         ),
         {"organization_id": organization_id, "ticket_id": ticket_id, "user_id": user_id},
@@ -917,6 +968,11 @@ def set_category(session, organization_id, ticket_id, category: str) -> dict:
 
 def transition_ticket(session, organization_id, ticket_id, action: str, reason: str | None, duplicate_of, status: str | None, actor_id) -> dict:
     ticket = _lock_ticket(session, organization_id, ticket_id)
+    if action == "set_status" and status in {"IN_PROGRESS", "COMPLETION_REVIEW", "COMPLETED", "CLOSED", "SCHEDULED"}:
+        problem(409, "WORKFLOW_REQUIRED", "Use the repair workflow to enforce entry, estimate approval, and resident completion confirmation.")
+    managed = session.execute(text("SELECT 1 FROM work_orders WHERE organization_id = :org AND ticket_id = :ticket AND workflow_managed"), {"org": organization_id, "ticket": ticket_id}).first()
+    if managed and action not in {"cancel", "link_duplicate"}:
+        problem(409, "WORKFLOW_REQUIRED", "Update this repair through its workflow.")
     if action == "cancel":
         if not (reason or "").strip():
             problem(422, "VALIDATION_ERROR", "Cancellation requires a reason.")
@@ -1233,7 +1289,14 @@ def _questions(category: str, missing: list[str]) -> list[str]:
 
 
 def _category(description: str) -> str:
+    from grok_bot.domain.maintenance_guidance import FAMILIES, matching_families
+
+    families = matching_families(description)
+    if families:
+        return FAMILIES[families[0]][0]
     text_value = description.lower()
+    if any(word in text_value for word in ("water heater", "hot water", "cold shower")):
+        return "leak"
     if any(word in text_value for word in ("sink", "leak", "drip", "pipe")):
         return "leak"
     if any(word in text_value for word in ("heat", "hvac", "air condition", "thermostat", "cooling")):
@@ -1253,8 +1316,22 @@ def _category(description: str) -> str:
 
 def _classify(description: str) -> tuple[bool, bool]:
     text_value = description.lower()
-    life = any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text_value) for term in LIFE_SAFETY_TERMS)
-    urgent = any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text_value) for term in URGENT_TERMS)
+    life = False
+    for clause in re.split(r"[,.!?;\n]+|\b(?:but|however)\b", text_value):
+        for term in LIFE_SAFETY_TERMS:
+            for match in re.finditer(r"(?<!\w)" + re.escape(term) + r"(?!\w)", clause):
+                prefix = clause[:match.start()]
+                denied = re.search(r"\b(?:no|without|not|never|isn['’]t|aren['’]t|don['’]t|doesn['’]t)(?:[\s,]+(?:any|a|an|the|signs?|of|visible|evidence|smell|smelling|or|and|smoke|sparks?|sparking|gas|fire|carbon|monoxide|alarm|electrical|shock|leaks?))*[\s,]*$", prefix)
+                absent = re.match(r"\s+(?:(?:(?:is|are|was|were)\s+)?(?:absent|not (?:present|detected|visible|seen|coming|observed))|(?:isn[’']t|aren[’']t|wasn[’']t|weren[’']t)\s+(?:present|visible|coming|happening))\b", clause[match.end():])
+                if not denied and not absent:
+                    life = True
+    from grok_bot.domain.maintenance_guidance import matching_families
+
+    urgent = "hvac" in matching_families(text_value) and any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text_value) for term in URGENT_TERMS)
+    whole_home_outage = re.search(r"\bno hot water(?: (?:at|from|in))? (?:any|all|every)(?: of the)? (?:faucets?|taps?|fixtures?|sinks?)\b|\bno hot water (?:anywhere|everywhere|throughout|(?:in|across) (?:the |our |my )?(?:whole |entire )?(?:house|home|apartment))\b|\b(?:all|every|other) (?:faucets?|taps?|fixtures?|sinks?)\b[^.!?;\n]{0,30}\b(?<!not )(?<!never )(?:cold|no hot water|without hot water|not getting hot)\b|\b(?:sink|faucet|tap)\b[^.!?;\n]{0,30}\b(?:cold too|also cold|cold as well)\b", text_value)
+    overheating_water = "hot_water" in matching_families(text_value) and re.search(r"\b(?:too hot|dangerously hot|burns? (?:my|our|the) skin|scald\w*)\b", text_value)
+    if overheating_water or whole_home_outage and "hot_water" in matching_families(text_value):
+        urgent = True
     return life, urgent
 
 

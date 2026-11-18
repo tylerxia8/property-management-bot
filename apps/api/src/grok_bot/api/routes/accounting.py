@@ -332,6 +332,8 @@ def post_agreement(property_id: UUID, body: AgreementBody, request: Request, pri
 @router.post("/receipts", response_model=ReceiptCreatedOut, status_code=201)
 def post_receipt(body: ReceiptBody, request: Request, principal: Principal = Depends(get_principal), session: Session = Depends(get_session, scope="function"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     require_capability(principal, "receipts.write")
+    if body.method in {"ZELLE", "VENMO", "STRIPE_ACH"}:
+        problem(409, "SIMULATED_BANK_REQUIRED", "Digital receipts currently require the simulated bank workflow.")
     key = require_idempotency_key(idempotency_key)
     payload = body.model_dump(mode="json")
     result, _status = run_idempotent_create(
