@@ -159,9 +159,10 @@ def test_mnt_03_gas_stops_questions_without_claiming_responders_or_switch_use(cl
     assert body["emergency"] is True
     assert body["priority"] == "EMERGENCY"
     assert body["next_questions"] == []
-    assert body["safety_message"].startswith(
-        "If there is immediate danger, leave the area if safe and call 911 or the appropriate emergency service."
-    )
+    assert body["safety_message"].startswith("Leave the property immediately.")
+    assert "Piedmont Natural Gas at 800-752-7504" in body["safety_message"]
+    assert "Once safely outside" in body["safety_message"]
+    assert "Don’t return until" in body["safety_message"]
     assert "Do not operate electrical switches." in body["safety_message"]
     lowered = body["safety_message"].lower()
     assert "were contacted" not in lowered

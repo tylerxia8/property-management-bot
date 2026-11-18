@@ -30,6 +30,7 @@ INCLUDE = [
     "apps/web/next-env.d.ts",
     "apps/web/app",
     "apps/web/lib",
+    "apps/web/public",
     "deploy/grok-property-sample/Start-GrokDemo.ps1",
     "deploy/grok-property-sample/Stop-GrokDemo.ps1",
     "deploy/grok-property-sample/Reset-GrokDemo.ps1",

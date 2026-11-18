@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 
 test("accounting records a check that is not yet available", async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Subject").fill("accounting@example.test");
+  await page.getByLabel("Email").fill("accounting@example.test");
   await page.getByLabel("Password").fill("local-accounting-password");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/properties$/);
+  await expect(page).toHaveURL(/\/maintenance(?:\/review)?(?:\?.*)?$/);
   await page.goto("/accounting");
   await expect(page.getByRole("heading", { name: "Receipts" })).toBeVisible();
   await expect(page.getByText("does not submit money")).toBeVisible();
@@ -19,10 +19,10 @@ test("accounting records a check that is not yet available", async ({ page }) =>
 
 test("accounting imports CSV safely and reports validation and evidence conflicts", async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel("Subject").fill("accounting@example.test");
+  await page.getByLabel("Email").fill("accounting@example.test");
   await page.getByLabel("Password").fill("local-accounting-password");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/properties$/);
+  await expect(page).toHaveURL(/\/maintenance(?:\/review)?(?:\?.*)?$/);
   const token = await page.evaluate(() => sessionStorage.getItem("grok_dev_token"));
   const bank = await page.request.post(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000"}/v1/bank-accounts`, {
     headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": `csv-browser-bank-${crypto.randomUUID()}` },

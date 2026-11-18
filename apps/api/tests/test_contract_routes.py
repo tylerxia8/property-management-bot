@@ -63,7 +63,7 @@ def test_scoped_grant_does_not_open_another_property_or_the_bank(client, migrato
 
 def test_reversal_credit_note_and_receipt_return_keep_the_original(client, migrator_engine):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0, single_owner=True)
-    receipt = _flow_available(client, world, 4_000)
+    receipt = _receipt(client, world, 4_000)
     returned = client.post(
         f"/v1/receipts/{receipt['id']}/returns",
         headers={**world["accounting"], "Idempotency-Key": "return-once"},
@@ -119,7 +119,13 @@ def test_reversal_credit_note_and_receipt_return_keep_the_original(client, migra
 
 def test_manual_evidence_is_not_a_simulator_event(client, migrator_engine, simulator):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0, single_owner=True)
-    _flow_available(client, world, 3_000)
+    receipt = _flow_available(client, world, 3_000)
+    allocated = client.post(
+        f"/v1/receipts/{receipt['id']}/allocations",
+        headers={**world["accounting"], "Idempotency-Key": f"allocate-{receipt['id']}"},
+        json={"posting_date": "2026-11-15"},
+    )
+    assert allocated.status_code == 201, allocated.text
     _destination(client, world, world["contractor_id"])
     invoice = _invoice(client, world, 3_000, "EVIDENCE")
     assert client.post(f"/v1/invoices/{invoice['id']}/approve", headers=world["manager"], json={"posting_date": "2026-11-20"}).status_code == 200

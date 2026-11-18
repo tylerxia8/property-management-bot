@@ -2,16 +2,17 @@ import { expect, test } from "@playwright/test";
 
 async function signIn(page: import("@playwright/test").Page, subject: string, password: string) {
   await page.goto("/login");
-  await page.getByLabel("Subject").fill(subject);
+  await page.getByLabel("Email").fill(subject);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/properties$/);
+  await expect(page).toHaveURL(/\/maintenance(?:\/review)?(?:\?.*)?$/);
+  await page.goto("/properties");
 }
 
 test("local shell discloses dev auth and enforces role capabilities", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.getByText("It is not production OIDC or MFA.")).toBeVisible();
-  await page.getByLabel("Subject").fill("accounting@example.test");
+  await expect(page.getByText("Sign in to see your repairs.")).toBeVisible();
+  await page.getByLabel("Email").fill("accounting@example.test");
   await page.getByLabel("Password").fill("wrong-password-value");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Subject or password is incorrect.")).toBeVisible();
@@ -39,7 +40,7 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
   await page.getByRole("button", { name: "Create property" }).click();
   const createResponse = await created;
   expect(createResponse.ok(), await createResponse.text()).toBeTruthy();
-  await page.getByRole("link", { name: "Canal House" }).click();
+  await page.getByRole("link", { name: "Canal House", exact: true }).click();
   await page.getByLabel("Unit label").fill("Main");
   await page.getByRole("button", { name: "Add unit" }).click();
   await expect(page.getByText("Main", { exact: true })).toBeVisible();
@@ -47,7 +48,7 @@ test("local shell discloses dev auth and enforces role capabilities", async ({ p
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await signIn(page, "manager@example.test", "local-manager-password");
-  await page.getByRole("link", { name: "Canal House" }).click();
+  await page.getByRole("link", { name: "Canal House", exact: true }).click();
   await expect(page.getByLabel("Name")).toHaveValue("Canal House");
   await page.getByLabel("Name").fill("Canal House North");
   const saved = page.waitForResponse(response => response.request().method() === "PATCH" && response.url().includes("/v1/properties/"));

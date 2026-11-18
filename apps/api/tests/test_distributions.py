@@ -55,7 +55,13 @@ def test_fin_04_hundred_replays_post_one_journal(client, migrator_engine):
 
 def test_fin_05_concurrent_reservations_cannot_exceed_cash(client, migrator_engine):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0, single_owner=True)
-    _flow_available(client, world, 90_000)
+    receipt = _flow_available(client, world, 90_000)
+    allocated = client.post(
+        f"/v1/receipts/{receipt['id']}/allocations",
+        headers={**world["accounting"], "Idempotency-Key": f"allocate-{receipt['id']}"},
+        json={"posting_date": "2026-11-15"},
+    )
+    assert allocated.status_code == 201, allocated.text
     _destination(client, world, world["contractor_id"])
     first = _invoice(client, world, 70_000, "RACE-A")
     second = _invoice(client, world, 50_000, "RACE-B")
@@ -195,7 +201,13 @@ def test_fin_10_return_books_recovery_and_freezes(client, migrator_engine, simul
 
 def test_fin_15_partial_failure_is_not_replayed(client, migrator_engine, simulator):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0, single_owner=True)
-    _flow_available(client, world, 40_000)
+    receipt = _flow_available(client, world, 40_000)
+    allocated = client.post(
+        f"/v1/receipts/{receipt['id']}/allocations",
+        headers={**world["accounting"], "Idempotency-Key": f"allocate-{receipt['id']}"},
+        json={"posting_date": "2026-11-15"},
+    )
+    assert allocated.status_code == 201, allocated.text
     _destination(client, world, world["contractor_id"])
     invoices = [_invoice(client, world, 10_000, f"PART-{index}") for index in range(4)]
     for invoice in invoices:
@@ -386,7 +398,13 @@ def _step(client, world):
 
 def _ready_payment(client, migrator_engine, amount):
     world = _world(client, migrator_engine, fee_numerator=0, fee_denominator=1, reserve_target=0, single_owner=True)
-    _flow_available(client, world, amount)
+    receipt = _flow_available(client, world, amount)
+    allocated = client.post(
+        f"/v1/receipts/{receipt['id']}/allocations",
+        headers={**world["accounting"], "Idempotency-Key": f"allocate-{receipt['id']}"},
+        json={"posting_date": "2026-11-15"},
+    )
+    assert allocated.status_code == 201, allocated.text
     _destination(client, world, world["contractor_id"])
     invoice = _invoice(client, world, amount, f"PAY-{amount}")
     assert client.post(f"/v1/invoices/{invoice['id']}/approve", headers=world["manager"], json={"posting_date": "2026-11-20"}).status_code == 200

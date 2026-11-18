@@ -3,10 +3,11 @@ import { expect, test } from "@playwright/test";
 
 async function signIn(page: import("@playwright/test").Page, subject: string, password: string) {
   await page.goto("/login");
-  await page.getByLabel("Subject").fill(subject);
+  await page.getByLabel("Email").fill(subject);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/properties$/);
+  await expect(page).toHaveURL(/\/maintenance(?:\/review)?(?:\?.*)?$/);
+  await page.goto("/properties");
 }
 
 test("core screens have no serious or critical axe violations", async ({ page }) => {

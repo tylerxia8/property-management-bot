@@ -35,7 +35,7 @@ export default function LoginPage() {
           await new Promise(resolve => setTimeout(resolve, 400 * 2 ** attempt));
         }
       }
-      router.push(roles.includes("contractor") ? "/maintenance/jobs" : roles.includes("property_manager") ? "/maintenance/manage" : "/maintenance");
+      router.push(roles.includes("contractor") ? "/maintenance/jobs" : roles.includes("property_manager") ? "/maintenance/review" : "/maintenance");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Please try again.");
     } finally {

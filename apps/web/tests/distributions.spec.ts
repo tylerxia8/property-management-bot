@@ -2,22 +2,23 @@ import { expect, test } from "@playwright/test";
 
 async function signIn(page: import("@playwright/test").Page, subject: string, password: string) {
   await page.goto("/login");
-  await page.getByLabel("Subject").fill(subject);
+  await page.getByLabel("Email").fill(subject);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/properties$/);
+  await expect(page).toHaveURL(/\/maintenance(?:\/review)?(?:\?.*)?$/);
 }
 
 test("manager export does not settle and owner sees only their statement", async ({ page }) => {
   await signIn(page, "accounting@example.test", "local-accounting-password");
   await page.goto("/distributions");
   await expect(page.getByRole("heading", { name: "Distribution approval" })).toBeVisible();
-  await expect(page.getByText("Bank submission is disabled")).toBeVisible();
-  await expect(page.getByLabel("Payee")).not.toHaveValue("");
+  await expect(page.getByText("Live bank submission is disabled.")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Payee", exact: true })).not.toHaveValue("");
+  await page.getByLabel("Masked destination label").fill("Zelle ending …example.test");
   await page.getByRole("button", { name: "Save masked destination" }).click();
   await expect(page.getByText(/Destination version/)).toBeVisible();
   await page.getByRole("button", { name: "Draft distribution" }).click();
-  await expect(page.getByText("Item OWNER 25000 cents DRAFT")).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: /OWNER.*\$250\.00.*DRAFT/ })).toBeVisible();
   await page.getByRole("button", { name: "Validate reservations" }).click();
   await expect(page.getByRole("heading", { name: "Batch VALIDATED" })).toBeVisible();
   const batchUrl = page.url();
@@ -45,8 +46,12 @@ test("manager export does not settle and owner sees only their statement", async
   await page.getByRole("button", { name: "Export instructions" }).click();
   await expect(page.getByText("Duplicate download")).toBeVisible();
   await expect(page.getByText("Export settled: false")).toBeVisible();
+  const submission = page.waitForResponse(response => response.request().method() === "POST" && /\/distribution-batches\/[^/]+\/submit$/.test(response.url()));
   await page.getByRole("button", { name: "Submit to provider" }).click();
-  await expect(page.getByText("KILL_SWITCH")).toBeVisible();
+  const blocked = await submission;
+  expect(blocked.status()).toBe(409);
+  expect((await blocked.json()).error.code).toBe("KILL_SWITCH");
+  await expect(page.getByRole("alert")).toContainText("Automatic payment submission is switched off.");
   await page.screenshot({ path: "test-results/distribution-export.png", fullPage: true });
 
   await page.getByRole("button", { name: "Sign out" }).click();

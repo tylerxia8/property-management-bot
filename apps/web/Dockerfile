@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY app ./app
 COPY lib ./lib
+COPY public ./public
 COPY next.config.ts tsconfig.json next-env.d.ts ./
 
 ENV NEXT_PUBLIC_DEMO_FIXTURE=sample

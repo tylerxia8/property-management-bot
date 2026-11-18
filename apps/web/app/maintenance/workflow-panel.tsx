@@ -289,7 +289,7 @@ export default function WorkflowPanel({ ticketId, onChange, audience }: { ticket
         <div className={styles.heading}><h3>{botConversation ? "Stevie" : "Conversation"}</h3><span className={styles.muted}>Updates automatically</span></div>
 
         {botConversation && <p className={styles.muted}>Let’s understand the problem first. I’ll suggest safe checks or prepare the details for the property manager. You can ask for the property manager at any time.</p>}
-        <div ref={conversation} onScroll={event => { const element = event.currentTarget; followChat.current = element.scrollHeight - element.scrollTop - element.clientHeight < 60; }} className={styles.conversation} role="log" aria-label="Repair messages" aria-relevant="additions">
+        <div ref={conversation} onScroll={event => { const element = event.currentTarget; followChat.current = element.scrollHeight - element.scrollTop - element.clientHeight < 60; }} className={styles.conversation} role="log" tabIndex={0} aria-label="Repair messages" aria-relevant="additions">
           {detail.messages.length ? detail.messages.map(message => <article className={`${styles.bubble} ${message.author_role === detail.role ? styles.ownBubble : ""}`} key={message.id}>
             <div className={styles.heading}><strong>{message.author_role === "system" ? "Stevie" : message.sender_label || human(message.author_role || "participant")}</strong><time dateTime={message.created_at}>{timestamp(message.created_at)}</time></div>
             <p className={styles.message}>{message.body}</p><div className={styles.attachments}>{mediaLinks(detail.media.filter(item => message.media_ids.includes(item.id)))}</div>

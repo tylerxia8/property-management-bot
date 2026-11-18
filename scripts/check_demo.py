@@ -30,7 +30,7 @@ def check_demo(base_url: str = "http://127.0.0.1:3000") -> list[str]:
     if request("/v1/health").get("status") != "ok":
         raise RuntimeError("The local API is not healthy.")
     home = request("/", html=True)
-    if "Fixture sample." not in home or "Choose a walkthrough" not in home:
+    if "<h1>Maintenance</h1>" not in home or any(label not in home for label in ("Open tenant view", "Open manager view", "Open repairman view")):
         raise RuntimeError("The updated fictional demo home screen is not running.")
     results = ["Local home and API are ready"]
     for role, path in [
