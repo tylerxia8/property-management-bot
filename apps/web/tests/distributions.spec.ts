@@ -51,7 +51,7 @@ test("manager export does not settle and owner sees only their statement", async
   const blocked = await submission;
   expect(blocked.status()).toBe(409);
   expect((await blocked.json()).error.code).toBe("KILL_SWITCH");
-  await expect(page.getByRole("alert")).toContainText("Automatic payment submission is switched off.");
+  await expect(page.locator("main").getByRole("alert")).toContainText("Automatic payment submission is switched off.");
   await page.screenshot({ path: "test-results/distribution-export.png", fullPage: true });
 
   await page.getByRole("button", { name: "Sign out" }).click();
